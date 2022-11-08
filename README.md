@@ -1,7 +1,3 @@
 # KeychainWrapper
 
-## Run Tests
-´´´
-swift test
-´´´
-
+Wrapper around the Keychain API on iOS and macOS.
