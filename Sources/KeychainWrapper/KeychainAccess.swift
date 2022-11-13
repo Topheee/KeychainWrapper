@@ -119,18 +119,18 @@ public func removeSecretFromKeychain(label: String) throws {
 		kSecMatchLimit as String: kSecMatchLimitAll]
 	try SecKey.check(status: SecItemDelete(query as CFDictionary), localizedError: NSLocalizedString("Deleting secret from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to delete a keychain item failed."))
 #else
-	let query: [CFString: Any] = [
-		kSecClass:      kSecClassGenericPassword,
-		kSecAttrLabel:  label,
-		kSecMatchLimit: kSecMatchLimitAll,
-		kSecReturnPersistentRef: true]
+	let query: [String: Any] = [
+		kSecClass as String:      kSecClassGenericPassword,
+		kSecAttrLabel as String:  label,
+		kSecMatchLimit as String: kSecMatchLimitAll,
+		kSecReturnPersistentRef as String: true]
 
 	var itemArray: CFTypeRef?
 	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &itemArray), localizedError: NSLocalizedString("Reading generic secret from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
 
 	if let items = itemArray as? [Data] {
 		try items.forEach {
-			let query: [CFString: Any] = [kSecValuePersistentRef: $0]
+			let query: [String: Any] = [kSecValuePersistentRef as String: $0]
 			try SecKey.check(status: SecItemDelete(query as CFDictionary), localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess", comment: "Removing an item from the keychain produced an error."))
 		}
 	} else {
