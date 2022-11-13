@@ -110,11 +110,33 @@ public func secretFromKeychain(label: String) throws -> String {
 
 /// Purges a generic unspecified secret from the keychain.
 public func removeSecretFromKeychain(label: String) throws {
+#if os(macOS)
+	// optimization for macOS
+	// does not work on iOS, since specifying `kSecMatchLimit` there results in an 'One or more parameters passed to a function were not valid.' error
 	let query: [String: Any] = [
 		kSecClass as String:      kSecClassGenericPassword,
 		kSecAttrLabel as String:  label,
 		kSecMatchLimit as String: kSecMatchLimitAll]
 	try SecKey.check(status: SecItemDelete(query as CFDictionary), localizedError: NSLocalizedString("Deleting secret from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to delete a keychain item failed."))
+#else
+	let query: [CFString: Any] = [
+		kSecClass:      kSecClassGenericPassword,
+		kSecAttrLabel:  label,
+		kSecMatchLimit: kSecMatchLimitAll,
+		kSecReturnRef:  true]
+
+	var itemArray: CFTypeRef?
+	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &itemArray), localizedError: NSLocalizedString("Reading generic secret from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+
+	if let items = itemArray as? [SecKeychainItem] {
+		try items.forEach {
+			let query: [CFString: Any] = [kSecValueRef: $0]
+			try SecKey.check(status: SecItemDelete(query as CFDictionary), localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess", comment: "Removing an item from the keychain produced an error."))
+		}
+	} else {
+		throw makeFatalError()
+	}
+#endif
 }
 
 /// Writes the `password` into the keychain as an internet password.
@@ -157,6 +179,12 @@ public func removeInternetPasswordFromKeychain(account: String, url: URL) throws
 /// > Note: Errors from other domains, such as `NSCocoaErrorDomain`, may still be thrown.
 private let ErrorDomain = "KeychainAccessErrorDomain";
 
+/// Creates an Error indicating a malformed keychain entry.
 private func makeEmptyKeychainDataError() -> Error {
 	return NSError(domain: ErrorDomain, code: NSFormattingError, userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("Keychain data is empty or not UTF-8 encoded.", tableName: "KeychainAccess", comment: "Error description for cryptographic operation failure")])
+}
+
+/// Creates an Error which is likely a development error within this library.
+private func makeFatalError() -> Error {
+	return NSError(domain: ErrorDomain, code: -1, userInfo: nil)
 }

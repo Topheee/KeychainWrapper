@@ -9,6 +9,11 @@ final class KeychainWrapperTests: XCTestCase {
 		try? removeSecretFromKeychain(label: SecretKey)
 	}
 
+	func testNormalOperation() throws {
+		try persistSecretInKeychain(secret: "a", label: SecretKey)
+		XCTAssertEqual(try secretFromKeychain(label: SecretKey), "a")
+	}
+
 	func testDeleteFailsOnNonExistantKeys() throws {
 		XCTAssertThrowsError(try removeSecretFromKeychain(label: "non-existant"))
 	}
