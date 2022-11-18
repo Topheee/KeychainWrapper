@@ -38,7 +38,7 @@ public class AsymmetricKey: Codable {
 		if #available(macOS 10.12.1, iOS 10.0, *) {
 			var error: Unmanaged<CFError>?
 			guard let data = SecKeyCopyExternalRepresentation(key, &error) as Data? else {
-				throw error!.takeRetainedValue()
+				throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
 			}
 			return data
 		} else {
@@ -64,13 +64,14 @@ public class AsymmetricKey: Codable {
 	/// - Throws: An `NSError` if `data` does not contain an appropriate representation of a key.
 	fileprivate convenience init(from data: Data, type: CFString, size: Int, keyClass: CFString) throws {
 		if #available(macOS 10.12.1, iOS 10.0, *) {
-			let attributes: [String : Any] = [
-				kSecAttrKeyType as String:			type,
-				kSecAttrKeySizeInBits as String:	  size,
-				kSecAttrKeyClass as String:		   keyClass]
+			let attributes: [CFString : Any] = [
+				kSecAttrKeyType:       type,
+				kSecAttrKeySizeInBits: size,
+				kSecAttrKeyClass:      keyClass]
+
 			var error: Unmanaged<CFError>?
 			guard let key = SecKeyCreateWithData(data as CFData, attributes as CFDictionary, &error) else {
-				throw error!.takeRetainedValue()
+				throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
 			}
 
 			self.init(key: key, type: type, keyClass: keyClass, size: size)
@@ -91,14 +92,16 @@ public class AsymmetricKey: Codable {
 				}
 			}
 			
-			let addquery: [String: Any] = [kSecClass as String: kSecClassKey,
-										   kSecAttrKeyType as String: type,
-										   kSecAttrApplicationTag as String: tag,
-										   kSecAttrKeySizeInBits as String: size,
-										   kSecValueData as String: data,
-										   kSecAttrLabel as String: temporaryLabel as CFString,
-										   kSecAttrKeyClass as String: keyClass,
-										   kSecReturnRef as String: NSNumber(value: true)]
+			let addquery: [CFString: Any] = [
+				kSecClass:              kSecClassKey,
+				kSecAttrKeyType:        type,
+				kSecAttrApplicationTag: tag,
+				kSecAttrKeySizeInBits:  size,
+				kSecValueData:          data,
+				kSecAttrLabel:          temporaryLabel,
+				kSecAttrKeyClass:       keyClass,
+				kSecReturnRef:          NSNumber(value: true)]
+
 			var item: CFTypeRef?
 			try SecKey.check(status: SecItemAdd(addquery as CFDictionary, &item), localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "AsymmetricCrypto", comment: "Writing raw key data to the keychain produced an error."))
 
@@ -120,9 +123,9 @@ public class AsymmetricKey: Codable {
 	required public convenience init(from decoder: Decoder) throws {
 		let values = try decoder.container(keyedBy: CodingKeys.self)
 		try self.init(from: try values.decode(Data.self, forKey: .key),
-					  type: try values.decode(String.self, forKey: .type) as CFString,
-					  size: try values.decode(Int.self, forKey: .size),
-					  keyClass: try values.decode(String.self, forKey: .keyClass) as CFString)
+			type: try values.decode(String.self, forKey: .type) as CFString,
+			size: try values.decode(Int.self, forKey: .size),
+			keyClass: try values.decode(String.self, forKey: .keyClass) as CFString)
 	}
 
 	/// Encodes the key properties and external representation.
@@ -146,8 +149,16 @@ public class AsymmetricPublicKey: AsymmetricKey {
 	}
 
 	/// Initializes  `AsymmetricKey` with `keyClass` `kSecAttrKeyClassPublic`.
+	@available(*, deprecated, message: "init(from data: Data, type: CFString, size: Int) is deprecated in v1.1.0, use init(from data: Data, algorithm: AsymmetricAlgorithm, size: Int)")
 	public convenience init(from data: Data, type: CFString, size: Int) throws {
 		try self.init(from: data, type: type, size: size, keyClass: kSecAttrKeyClassPublic)
+	}
+
+	/// Initializes a public asymmetric key from an external representation.
+	///
+	/// > Note: Added in v1.1.0.
+	public convenience init(from data: Data, algorithm: AsymmetricAlgorithm, size: Int) throws {
+		try self.init(from: data, type: algorithm.keyType, size: size, keyClass: kSecAttrKeyClassPublic)
 	}
 
 	/// Initializes  `AsymmetricKey` with `keyClass` `kSecAttrKeyClassPublic`.
@@ -165,12 +176,12 @@ public class AsymmetricPublicKey: AsymmetricKey {
 				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support verifying.", tableName: "AsymmetricCrypto", comment: "Error description for verifying exception, which should never actually occur")
 
 				let errorDescription = String(format: errorFormat, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256.rawValue as String)
-				throw NSError(domain: AsymmetricCryptoErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
+				throw NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
 			}
 
 			var error: Unmanaged<CFError>?
 			guard SecKeyVerifySignature(key, algorithm, data as CFData, signature as CFData, &error) else {
-				throw error!.takeUnretainedValue() as Error
+				throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
 			}
 		} else {
 			#if os(iOS)
@@ -185,15 +196,6 @@ public class AsymmetricPublicKey: AsymmetricKey {
 				try SecKey.check(status: status, localizedError: NSLocalizedString("Verifying signature failed.", tableName: "AsymmetricCrypto", comment: "Cryptographically verifying a message failed."))
 			#else
 				throw makeOldMacOSUnsupportedError()
-//			var _error: Unmanaged<CFError>? = nil
-//			let _transform = SecVerifyTransformCreate(key, signature as CFData, &_error)
-//			guard let transform = _transform else {
-//				throw _error!.takeRetainedValue()
-//			}
-//			guard SecTransformSetAttribute(transform, kSecTransformInputAttributeName, data as CFData, &_error) else {
-//				throw _error!.takeRetainedValue()
-//			}
-//			SecTransformExecute(<#T##transformRef: SecTransform##SecTransform#>, <#T##errorRef: UnsafeMutablePointer<Unmanaged<CFError>?>?##UnsafeMutablePointer<Unmanaged<CFError>?>?#>)
 			#endif
 		}
 	}
@@ -210,7 +212,7 @@ public class AsymmetricPublicKey: AsymmetricKey {
 				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support encryption.", tableName: "AsymmetricCrypto", comment: "Error description for verifying exception, which should never actually occur")
 
 				let errorDescription = String(format: errorFormat, algorithm.rawValue as String)
-				throw NSError(domain: AsymmetricCryptoErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
+				throw NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
 			}
 			
 			let padding = 0 // TODO find out how much it is for ECDH
@@ -223,7 +225,7 @@ public class AsymmetricPublicKey: AsymmetricKey {
 			
 			var error: Unmanaged<CFError>?
 			guard let cipherText = SecKeyCreateEncryptedData(key, algorithm, plainText as CFData, &error) as Data? else {
-				throw error!.takeRetainedValue() as Error
+				throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
 			}
 			
 			return cipherText
@@ -256,8 +258,16 @@ public class AsymmetricPrivateKey: AsymmetricKey {
 	}
 
 	/// Initializes  `AsymmetricKey` with `keyClass` `kSecAttrKeyClassPrivate`.
+	@available(*, deprecated, message: "init(from data: Data, type: CFString, size: Int) is deprecated in v1.1.0, use init(from data: Data, algorithm: AsymmetricAlgorithm, size: Int)")
 	public convenience init(from data: Data, type: CFString, size: Int) throws {
 		try self.init(from: data, type: type, size: size, keyClass: kSecAttrKeyClassPrivate)
+	}
+
+	/// Initializes a private asymmetric key from an external representation.
+	///
+	/// > Note: Added in v1.1.0.
+	public convenience init(from data: Data, algorithm: AsymmetricAlgorithm, size: Int) throws {
+		try self.init(from: data, type: algorithm.keyType, size: size, keyClass: kSecAttrKeyClassPrivate)
 	}
 
 	/// Initializes  `AsymmetricKey` with `keyClass` `kSecAttrKeyClassPrivate`.
@@ -277,13 +287,12 @@ public class AsymmetricPrivateKey: AsymmetricKey {
 				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support signing.", tableName: "AsymmetricCrypto", comment: "Error description for signing exception, which should never actually occur")
 
 				let errorDescription = String(format: errorFormat, algorithm.rawValue as String)
-				throw NSError(domain: AsymmetricCryptoErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
+				throw NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
 			}
 			
 			var error: Unmanaged<CFError>?
 			guard let signature = SecKeyCreateSignature(key, algorithm, data as CFData, &error) as Data? else {
-				let throwedError = error!.takeRetainedValue() as Error
-				throw throwedError
+				throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
 			}
 			
 			return signature
@@ -321,12 +330,12 @@ public class AsymmetricPrivateKey: AsymmetricKey {
 				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support decryption.", tableName: "AsymmetricCrypto", comment: "Error description for decryption exception, which should never actually occur")
 
 				let errorDescription = String(format: errorFormat, algorithm.rawValue as String)
-				throw NSError(domain: AsymmetricCryptoErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
+				throw NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
 			}
 			
 			var error: Unmanaged<CFError>?
 			guard let clearText = SecKeyCreateDecryptedData(key, algorithm, cipherText as CFData, &error) as Data? else {
-				throw error!.takeRetainedValue() as Error
+				throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
 			}
 			
 			return clearText
@@ -365,45 +374,70 @@ public struct KeyPair {
 	public var blockSize: Int { return privateKey.blockSize }
 
 	/// Generates a key pair and optionally stores it in the keychain.
+	///
+	/// > Note: Added in v1.1.0.
+	@available(OSX 10.15, iOS 13.0, *)
+	public init(privateTag: Data, publicTag: Data, algorithm: AsymmetricAlgorithm, size: Int, persistent: Bool, useEnclave: Bool = false) throws {
+		self.privateTag = privateTag
+		self.publicTag = publicTag
+
+		// the label does not belong to the primary key, so we should be safe to ignore it
+		self.label = ""
+
+		let (publicKeyItem, privateKeyItem) = try generateAsymmetricKeyPair(privateTag: privateTag, publicTag: publicTag, algorithm: algorithm, size: size, persistent: persistent, useEnclave: useEnclave)
+
+		self.privateKey = AsymmetricPrivateKey(key: privateKeyItem, type: algorithm.keyType, size: size)
+		self.publicKey = AsymmetricPublicKey(key: publicKeyItem, type: algorithm.keyType, size: size)
+	}
+
+	/// Generates a key pair and optionally stores it in the keychain.
+	@available(*, deprecated, message: "init with `label` attribute is deprecated in v1.1.0, use new init. But be careful on macOS: it will not reference the same key!")
 	public init(label: String, privateTag: Data, publicTag: Data, type: CFString, size: Int, persistent: Bool, useEnclave: Bool = false) throws {
+		// The documentation says: For key items, the primary keys include kSecAttrKeyClass, kSecAttrKeyType, kSecAttrApplicationLabel, kSecAttrApplicationTag, kSecAttrKeySizeInBits, and kSecAttrEffectiveKeySize.
+		// - However, on kSecAttrApplicationLabel: […] for keys of class kSecAttrKeyClassPublic and kSecAttrKeyClassPrivate, the value of this attribute is the hash of the public key.
+		// - kSecAttrKeyClass is implicit.
+		// - kSecAttrEffectiveKeySize is listed in chapter 'Optional' …
+
 		self.privateTag = privateTag
 		self.publicTag = publicTag
 		self.label = label
-		var error: Unmanaged<CFError>?
-		var attributes: [String : Any]
+
+		var attributes: [CFString : Any]
 		if useEnclave {
+			var error: Unmanaged<CFError>?
 			guard let access = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, .privateKeyUsage, &error) else {
-				throw error!.takeRetainedValue() as Error
+				throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
 			}
+
 			attributes = [
-				kSecAttrLabel as String:			  label as CFString,
-				kSecAttrKeyType as String:			type,
-				kSecAttrKeySizeInBits as String:	  size,
-				kSecAttrTokenID as String:			kSecAttrTokenIDSecureEnclave,
-				kSecPrivateKeyAttrs as String: [
-					kSecAttrIsPermanent as String:	persistent,
-					kSecAttrApplicationTag as String: privateTag,
-					kSecAttrAccessControl as String:  access
+				kSecAttrLabel:         label,
+				kSecAttrKeyType:       type,
+				kSecAttrKeySizeInBits: size,
+				kSecAttrTokenID:       kSecAttrTokenIDSecureEnclave,
+				kSecPrivateKeyAttrs: [
+					kSecAttrIsPermanent:    persistent,
+					kSecAttrApplicationTag: privateTag,
+					kSecAttrAccessControl:  access
 					] as CFDictionary,
-				kSecPublicKeyAttrs as String: [
-					kSecAttrIsPermanent as String:	persistent,
-					kSecAttrApplicationTag as String: publicTag,
-					kSecAttrAccessControl as String:  access
+				kSecPublicKeyAttrs: [
+					kSecAttrIsPermanent:    persistent,
+					kSecAttrApplicationTag: publicTag,
+					kSecAttrAccessControl:  access
 					] as CFDictionary
 			]
 		} else {
 			attributes = [
-				kSecAttrLabel as String:			  label as CFString,
-				kSecAttrKeyType as String:			type,
-				kSecAttrKeySizeInBits as String:	  size,
-				kSecAttrIsExtractable as String:	  false as CFBoolean,
-				kSecPrivateKeyAttrs as String: [
-					kSecAttrIsPermanent as String:	persistent,
-					kSecAttrApplicationTag as String: privateTag
+				kSecAttrLabel:         label,
+				kSecAttrKeyType:       type,
+				kSecAttrKeySizeInBits: size,
+				kSecAttrIsExtractable: false,
+				kSecPrivateKeyAttrs: [
+					kSecAttrIsPermanent:    persistent,
+					kSecAttrApplicationTag: privateTag
 					] as CFDictionary,
-				kSecPublicKeyAttrs as String: [
-					kSecAttrIsPermanent as String:	persistent,
-					kSecAttrApplicationTag as String: publicTag
+				kSecPublicKeyAttrs: [
+					kSecAttrIsPermanent:    persistent,
+					kSecAttrApplicationTag: publicTag
 					] as CFDictionary
 			]
 		}
@@ -412,15 +446,29 @@ public struct KeyPair {
 		try SecKey.check(status: SecKeyGeneratePair(attributes as CFDictionary, &_publicKey, &_privateKey), localizedError: NSLocalizedString("Generating cryptographic key pair failed.", tableName: "AsymmetricCrypto", comment: "Low level crypto error."))
 		
 		privateKey = AsymmetricPrivateKey(key: _privateKey!, type: type, size: size)
-		
-		#if (os(iOS) && (arch(x86_64) || arch(i386))) || os(macOS) // iPhone Simulator or macOS
-			publicKey = AsymmetricPublicKey(key: _publicKey!, type: type, size: size)
-		#else
-			publicKey = AsymmetricPublicKey(key: _publicKey!, type: type, size: size)
-		#endif
+		publicKey = AsymmetricPublicKey(key: _publicKey!, type: type, size: size)
 	}
 
 	/// Loads a key pair from the system keychain.
+	///
+	/// > Note: Added in v1.1.0.
+	@available(OSX 10.15, iOS 13.0, *)
+	public init(fromKeychainWithPrivateTag privateTag: Data, publicTag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws {
+		self.privateTag = privateTag
+		self.publicTag = publicTag
+
+		// the label does not belong to the primary key, so we should be safe to ignore it
+		self.label = ""
+
+		let privateKeyItem = try privateKeyFromKeychain(tag: privateTag, algorithm: algorithm, size: size)
+		let publicKeyItem = try publicKeyFromKeychain(tag: publicTag, algorithm: algorithm, size: size)
+
+		self.privateKey = AsymmetricPrivateKey(key: privateKeyItem, type: algorithm.keyType, size: size)
+		self.publicKey = AsymmetricPublicKey(key: publicKeyItem, type: algorithm.keyType, size: size)
+	}
+
+	/// Loads a key pair from the system keychain.
+	@available(*, deprecated, message: "init with `label` attribute is deprecated in v1.1.0, use new init. But be careful on macOS: it will not reference the same key!")
 	public init(fromKeychainWith label: String, privateTag: Data, publicTag: Data, type: CFString, size: Int) throws {
 		self.privateTag = privateTag
 		self.publicTag = publicTag
@@ -474,34 +522,77 @@ public struct KeyPair {
 }
 
 /// Wrapper-function around addToKeychain() for `SecKey`.
+///
+/// > Note: Added in v1.1.0.
+@available(*, deprecated, message: "addToKeychain is deprecated in v1.1.0, use addAsymmetricKeyToKeychain")
 func addToKeychain(key: AsymmetricKey, label: String, tag: Data) throws -> Data {
 	return try addToKeychain(key: key.key, label: label, tag: tag, keyType: key.type, keyClass: key.keyClass, size: key.size)
 }
 
 /// Wrapper-function around removeFromKeychain() for `SecKey`.
+///
+/// > Note: Added in v1.1.0.
+@available(*, deprecated, message: "removeFromKeychain is deprecated in v1.1.0, use removeAsymmetricKeyFromKeychain")
 func removeFromKeychain(key: AsymmetricKey, label: String, tag: Data) throws {
 	try removeFromKeychain(tag: tag, keyType: key.type, keyClass: key.keyClass, size: key.size)
 }
 
 /// Wrapper-function around keyFromKeychain() for `SecKey`.
+///
+/// > Note: Added in v1.1.0.
+@available(*, deprecated, message: "publicKeyFromKeychain is deprecated in v1.1.0, use publicAsymmetricKeyFromKeychain")
 func publicKeyFromKeychain(label: String, tag: Data, type: CFString, size: Int) throws -> AsymmetricPublicKey {
 	let key = try keyFromKeychain(label: label, tag: tag, keyType: type, keyClass: kSecAttrKeyClassPublic, size: size)
 	return AsymmetricPublicKey(key: key, type: type, size: size)
 }
 
 /// Wrapper-function around keyFromKeychain() for `SecKey`.
+///
+/// > Note: Added in v1.1.0.
+@available(*, deprecated, message: "privateKeyFromKeychain is deprecated in v1.1.0, use privateAsymmetricKeyFromKeychain")
 func privateKeyFromKeychain(label: String, tag: Data, type: CFString, size: Int) throws -> AsymmetricPrivateKey {
 	let key = try keyFromKeychain(label: label, tag: tag, keyType: type, keyClass: kSecAttrKeyClassPrivate, size: size)
 	return AsymmetricPrivateKey(key: key, type: type, size: size)
 }
 
-/// The `domain` value of errors created within this file.
+/// Insert an ``AsymmetricKey`` into the system's keychain.
 ///
-/// > Note: Errors from other domains, such as `NSCocoaErrorDomain`, may still be thrown.
-private let AsymmetricCryptoErrorDomain = "AsymmetricCryptoErrorDomain";
+/// > Note: Added in v1.1.0.
+@available(OSX 10.15, iOS 13.0, *)
+func addAsymmetricKeyToKeychain(key: AsymmetricKey, tag: Data) throws -> Data {
+	return try addAsymmetricKeyToKeychain(key: key.key, tag: tag, keyType: key.type, keyClass: key.keyClass, size: key.size)
+}
+
+/// Delete an ``AsymmetricKey`` from the system's keychain.
+///
+/// > Note: Added in v1.1.0.
+@available(OSX 10.15, iOS 13.0, *)
+func removeAsymmetricKeyFromKeychain(key: AsymmetricKey, tag: Data) throws {
+	try removeAsymmetricKeyFromKeychain(tag: tag, keyType: key.type, keyClass: key.keyClass, size: key.size)
+}
+
+/// Get an ``AsymmetricPublicKey`` from the system's keychain.
+///
+/// > Note: Added in v1.1.0.
+@available(OSX 10.15, iOS 13.0, *)
+func publicAsymmetricKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> AsymmetricPublicKey {
+	let key = try publicKeyFromKeychain(tag: tag, algorithm: algorithm, size: size)
+	return AsymmetricPublicKey(key: key, type: algorithm.keyType, size: size)
+}
+
+/// Get an ``AsymmetricPrivateKey`` from the system's keychain.
+///
+/// > Note: Added in v1.1.0.
+@available(OSX 10.15, iOS 13.0, *)
+func privateAsymmetricKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> AsymmetricPrivateKey {
+	let key = try privateKeyFromKeychain(tag: tag, algorithm: algorithm, size: size)
+	return AsymmetricPrivateKey(key: key, type: algorithm.keyType, size: size)
+}
+
+// MARK: - Private
 
 /// Creates an error indicating that macOS below 10.12.1 is not supported.
 private func makeOldMacOSUnsupportedError() -> Error {
-	return NSError(domain: AsymmetricCryptoErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("macOS below 10.12.1 is not supported.", tableName: "AsymmetricCrypto", comment: "Error description for cryptographic operation failure")])
+	return NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("macOS below 10.12.1 is not supported.", tableName: "AsymmetricCrypto", comment: "Error description for cryptographic operation failure")])
 }
 

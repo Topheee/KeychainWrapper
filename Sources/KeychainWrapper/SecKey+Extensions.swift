@@ -19,9 +19,10 @@ extension SecKey {
 		guard status != errSecSuccess else { return }
 
 		let msg = errorMessage(describing: status)
-		let userInfo: [String : Any] = [NSLocalizedDescriptionKey : localizedError,
-								 NSLocalizedFailureReasonErrorKey : msg,
-									   NSLocalizedFailureErrorKey : makeError(from: status)]
+		let userInfo: [String : Any] = [
+			NSLocalizedDescriptionKey:        localizedError,
+			NSLocalizedFailureReasonErrorKey: msg,
+			NSLocalizedFailureErrorKey:       makeError(from: status)]
 		throw NSError(domain: NSOSStatusErrorDomain, code: Int(status), userInfo: userInfo)
 	}
 }
