@@ -227,6 +227,7 @@ private struct URLPrimaryKeyData {
 }
 
 /// Produces the query parameters with all primary key attributes for internet passwords.
+@available(OSX 10.15, iOS 13.0, *)
 private func baseKeychainQuery(account: String, securityDomain: String, server: String, port: Int, path: String, protocolAttribute: ProtocolKeychainAttribute, authenticationType: AuthenticationTypeKeychainAttribute) -> [CFString: Any] {
 	// For internet passwords, the primary keys include kSecAttrAccount, kSecAttrSecurityDomain, kSecAttrServer, kSecAttrProtocol, kSecAttrAuthenticationType, kSecAttrPort, and kSecAttrPath.
         var query: [CFString : Any] = [

@@ -88,6 +88,7 @@ public func removeGenericPasswordFromKeychain(account: String, service: String) 
 private let GenericPasswordLabelAttribute = "KeychainWrapper Generic Password"
 
 /// Produces the query parameters with all primary key attributes for generic passwords.
+@available(OSX 10.15, iOS 13.0, *)
 private func baseKeychainQuery(account: String, service: String) -> [CFString: Any] {
 	var query: [CFString : Any] = [
 		kSecClass:       kSecClassGenericPassword,

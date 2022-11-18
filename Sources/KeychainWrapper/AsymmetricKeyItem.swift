@@ -223,6 +223,7 @@ public func removePrivateKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorit
 private let KeyItemLabelAttribute = "KeychainWrapper Key Item"
 
 /// Produces the query parameters with all primary key attributes for asymmetric key items.
+@available(OSX 10.15, iOS 13.0, *)
 private func baseKeychainQuery(keyClass: CFString, tag: Data, algorithm: AsymmetricAlgorithm, size: Int) -> [CFString: Any] {
         // For key items, the primary keys include kSecAttrKeyClass, kSecAttrKeyType, kSecAttrApplicationLabel, kSecAttrApplicationTag, kSecAttrKeySizeInBits, and kSecAttrEffectiveKeySize.
 	// However, for asymmetric keys kSecAttrApplicationLabel is derived from the hash of the public key and symmetric keys are not really supported: https://stackoverflow.com/questions/22172229/how-to-use-secitemadd-to-store-a-symmetric-key-in-os-x
