@@ -29,6 +29,8 @@ final class KeyItemTests: XCTestCase {
 		// should throw error since the key is set to be non-extractible
 		XCTAssertThrowsError(try privateKeyDataFromKeychain(tag: normalPrivateTag, algorithm: ecAlgorithm, size: normalECAsymmetricKeySize))
 
+		XCTAssertNoThrow(try publicKeyDataFromKeychain(tag: normalPrivateTag, algorithm: ecAlgorithm, size: normalECAsymmetricKeySize))
+
 		XCTAssertNoThrow(try removePublicKeyFromKeychain(tag: normalPrivateTag, algorithm: ecAlgorithm, size: normalECAsymmetricKeySize))
 		XCTAssertNoThrow(try removePrivateKeyFromKeychain(tag: normalPrivateTag, algorithm: ecAlgorithm, size: normalECAsymmetricKeySize))
 	}

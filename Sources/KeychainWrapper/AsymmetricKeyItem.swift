@@ -96,7 +96,7 @@ public func generateAsymmetricKeyPair(privateTag: Data, publicTag: Data, algorit
 /// > Note: Added in v1.1.0.
 @available(OSX 10.15, iOS 13.0, *)
 public func publicKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> SecKey {
-	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPrivate, tag: tag, algorithm: algorithm, size: size)
+	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPublic, tag: tag, algorithm: algorithm, size: size)
 	query[kSecReturnRef] = NSNumber(value: true)
 
 	var item: CFTypeRef?
@@ -126,7 +126,7 @@ public func privateKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, si
 /// > Note: Added in v1.1.0.
 @available(OSX 10.15, iOS 13.0, *)
 public func publicKeyDataFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> Data {
-	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPrivate, tag: tag, algorithm: algorithm, size: size)
+	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPublic, tag: tag, algorithm: algorithm, size: size)
 	query[kSecReturnData] = NSNumber(value: true)
 
 	var item: CFTypeRef?
