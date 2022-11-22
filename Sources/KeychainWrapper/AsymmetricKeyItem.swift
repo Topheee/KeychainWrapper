@@ -40,8 +40,6 @@ public enum AsymmetricAlgorithm {
 public func generateAsymmetricKeyPair(privateTag: Data, publicTag: Data, algorithm: AsymmetricAlgorithm, size: Int, persistent: Bool, useEnclave: Bool = false) throws -> (SecKey, SecKey) {
 	var attributes: [CFString : Any] = [
 		kSecAttrLabel:         KeyItemLabelAttribute,
-		kSecAttrDescription:   KeychainWrapperDescriptionAttribute,
-		kSecAttrComment:       KeychainWrapperCommentAttribute,
 		kSecAttrKeyType:       algorithm.keyType,
 		kSecAttrKeySizeInBits: size]
 
@@ -160,8 +158,6 @@ public func privateKeyDataFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm
 public func addPublicKeyToKeychain(_ key: SecKey, tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> Data {
 	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPublic, tag: tag, algorithm: algorithm, size: size)
 	query[kSecAttrLabel]       = KeyItemLabelAttribute
-	query[kSecAttrDescription] = KeychainWrapperDescriptionAttribute
-	query[kSecAttrComment]     = KeychainWrapperCommentAttribute
 	query[kSecValueRef]        = key
 	query[kSecReturnData]      = NSNumber(value: true)
 
@@ -179,8 +175,6 @@ public func addPublicKeyToKeychain(_ key: SecKey, tag: Data, algorithm: Asymmetr
 public func addPrivateKeyToKeychain(_ key: SecKey, tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> Data {
 	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPrivate, tag: tag, algorithm: algorithm, size: size)
 	query[kSecAttrLabel]       = KeyItemLabelAttribute
-	query[kSecAttrDescription] = KeychainWrapperDescriptionAttribute
-	query[kSecAttrComment]     = KeychainWrapperCommentAttribute
 	query[kSecValueRef]        = key
 	query[kSecReturnData]      = NSNumber(value: true)
 
