@@ -49,7 +49,8 @@ func generateRandomData(length: Int) throws -> Data {
 
 /// Converts an `OSStatus` returned by a security function to an `Error`.
 func makeError(from status: OSStatus) -> Error {
-	return NSError(domain: kCFErrorDomainOSStatus as String, code: Int(status), userInfo: [NSLocalizedDescriptionKey : errorMessage(describing: status)])
+	return NSError(domain: kCFErrorDomainOSStatus as String, code: Int(status),
+		userInfo: [NSLocalizedDescriptionKey : errorMessage(describing: status)])
 }
 
 /// The `domain` value of errors created within this package.
@@ -59,21 +60,27 @@ let ErrorDomain = "KeychainAccessErrorDomain";
 
 /// Creates an Error indicating a malformed keychain entry.
 func makeEmptyKeychainDataError() -> Error {
-	return NSError(domain: ErrorDomain, code: NSFormattingError, userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("Keychain data is empty or not UTF-8 encoded.", tableName: "KeychainAccess", comment: "Error description for cryptographic operation failure")])
+	return NSError(domain: ErrorDomain, code: NSFormattingError,
+		userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("Keychain data is empty or not UTF-8 encoded.",
+			tableName: "KeychainAccess", bundle: .module, comment: "Error description for cryptographic operation failure")])
 }
 
 /// Creates an Error indicating a `String` cannot be encoded to `Data`.
 ///
 /// > Note: Added in v1.1.0.
 func makeStringEncodingError() -> Error {
-	return NSError(domain: ErrorDomain, code: NSFormattingError, userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("String encoding failed.", tableName: "KeychainAccess", comment: "Error description for serialization operation failure.")])
+	return NSError(domain: ErrorDomain, code: NSFormattingError,
+		userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("String encoding failed.",
+			tableName: "KeychainAccess", bundle: .module, comment: "Error description for serialization operation failure.")])
 }
 
 /// Creates an Error indicating a `String` cannot be encoded to `Data`.
 ///
 /// > Note: Added in v1.1.0.
 func makeStringDecodingError() -> Error {
-	return NSError(domain: ErrorDomain, code: NSFormattingError, userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("String decoding failed.", tableName: "KeychainAccess", comment: "Error description for serialization operation failure.")])
+	return NSError(domain: ErrorDomain, code: NSFormattingError,
+		userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("String decoding failed.",
+			tableName: "KeychainAccess", bundle: .module, comment: "Error description for serialization operation failure.")])
 }
 
 /// Creates an Error which is likely a development error within this library.
@@ -138,7 +145,9 @@ func addAsymmetricKeyToKeychain(key: SecKey, tag: Data, keyType: CFString, keyCl
 		kSecReturnData:                NSNumber(value: true)]
 
 	var item: CFTypeRef?
-	try SecKey.check(status: SecItemAdd(addquery as CFDictionary, &item), localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "KeychainAccess", comment: "Writing raw key data to the keychain produced an error."))
+	try SecKey.check(status: SecItemAdd(addquery as CFDictionary, &item),
+		localizedError: NSLocalizedString("Adding key data to keychain failed.",
+			tableName: "KeychainAccess", bundle: .module, comment: "Writing raw key data to the keychain produced an error."))
 
 	return (item as! CFData) as Data
 }
@@ -156,5 +165,7 @@ func removeAsymmetricKeyFromKeychain(tag: Data, keyType: CFString, keyClass: CFS
 		kSecAttrApplicationTag:        tag,
 		kSecAttrKeyType:               keyType]
 
-	try SecKey.check(status: SecItemDelete(remquery as CFDictionary), localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess", comment: "Removing an item from the keychain produced an error."))
+	try SecKey.check(status: SecItemDelete(remquery as CFDictionary),
+		localizedError: NSLocalizedString("Deleting keychain item failed.",
+			tableName: "KeychainAccess", bundle: .module, comment: "Removing an item from the keychain produced an error."))
 }

@@ -103,7 +103,10 @@ public class AsymmetricKey: Codable {
 				kSecReturnRef:          NSNumber(value: true)]
 
 			var item: CFTypeRef?
-			try SecKey.check(status: SecItemAdd(addquery as CFDictionary, &item), localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "AsymmetricCrypto", comment: "Writing raw key data to the keychain produced an error."))
+			try SecKey.check(status: SecItemAdd(addquery as CFDictionary, &item),
+                    localizedError: NSLocalizedString("Adding key data to keychain failed.",
+                        tableName: "AsymmetricCrypto", bundle: .module,
+                        comment: "Writing raw key data to the keychain produced an error."))
 
 			self.init(key: item as! SecKey, type: type, keyClass: keyClass, size: size)
 		}
@@ -173,7 +176,9 @@ public class AsymmetricPublicKey: AsymmetricKey {
 		if #available(macOS 10.12.1, iOS 10.0, *) {
 			let algorithm = SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256
 			guard SecKeyIsAlgorithmSupported(key, .verify, algorithm) else {
-				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support verifying.", tableName: "AsymmetricCrypto", comment: "Error description for verifying exception, which should never actually occur")
+				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support verifying.",
+					tableName: "AsymmetricCrypto", bundle: .module,
+					comment: "Error description for verifying exception, which should never actually occur")
 
 				let errorDescription = String(format: errorFormat, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256.rawValue as String)
 				throw NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
@@ -186,14 +191,16 @@ public class AsymmetricPublicKey: AsymmetricKey {
 		} else {
 			#if os(iOS)
 				let digest = data.sha256()
-				
+
 				let status = signature.withUnsafePointer { (signatureBytes: UnsafePointer<UInt8>) in
 					return digest.withUnsafePointer { (digestBytes: UnsafePointer<UInt8>) in
 						SecKeyRawVerify(key, AsymmetricKey.signaturePadding, digestBytes, digest.count, signatureBytes, signature.count)
 					}
 				}
-				
-				try SecKey.check(status: status, localizedError: NSLocalizedString("Verifying signature failed.", tableName: "AsymmetricCrypto", comment: "Cryptographically verifying a message failed."))
+
+				try SecKey.check(status: status, localizedError: NSLocalizedString("Verifying signature failed.",
+					 tableName: "AsymmetricCrypto", bundle: .module,
+					 comment: "Cryptographically verifying a message failed."))
 			#else
 				throw makeOldMacOSUnsupportedError()
 			#endif
@@ -209,7 +216,9 @@ public class AsymmetricPublicKey: AsymmetricKey {
 		if #available(macOS 10.12.1, iOS 10.0, *) {
 			let algorithm = SecKeyAlgorithm.eciesEncryptionStandardX963SHA256AESGCM // does not work: ecdhKeyExchangeStandardX963SHA256, ecdhKeyExchangeCofactor
 			guard SecKeyIsAlgorithmSupported(key, .encrypt, algorithm) else {
-				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support encryption.", tableName: "AsymmetricCrypto", comment: "Error description for verifying exception, which should never actually occur")
+				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support encryption.",
+				tableName: "AsymmetricCrypto", bundle: .module,
+				comment: "Error description for verifying exception, which should never actually occur")
 
 				let errorDescription = String(format: errorFormat, algorithm.rawValue as String)
 				throw NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
@@ -217,7 +226,9 @@ public class AsymmetricPublicKey: AsymmetricKey {
 			
 			let padding = 0 // TODO find out how much it is for ECDH
 			guard plainText.count <= (SecKeyGetBlockSize(key)-padding) else {
-				let errorFormat = NSLocalizedString("Plain text length (%d) exceeds block size %d", tableName: "AsymmetricCrypto", comment: "Exception when trying to encrypt too-big data.")
+				let errorFormat = NSLocalizedString("Plain text length (%d) exceeds block size %d",
+				tableName: "AsymmetricCrypto", bundle: .module,
+				comment: "Exception when trying to encrypt too-big data.")
 
 				let errorDescription = String(format: errorFormat, plainText.count, SecKeyGetBlockSize(key)-padding)
 				throw NSError(domain: NSCocoaErrorDomain, code: NSValidationErrorMaximum, userInfo: [NSLocalizedDescriptionKey : errorDescription])
@@ -238,7 +249,10 @@ public class AsymmetricPublicKey: AsymmetricKey {
 						SecKeyEncrypt(key, AsymmetricKey.encryptionPadding, plainTextBytes, plainText.count, cipherBytes, &cipherSize)
 					}
 				}
-				try SecKey.check(status: status, localizedError: NSLocalizedString("Cryptographically encrypting failed.", tableName: "AsymmetricCrypto", comment: "Cryptographically encrypting a message failed."))
+				try SecKey.check(status: status,
+					localizedError: NSLocalizedString("Cryptographically encrypting failed.",
+					tableName: "AsymmetricCrypto", bundle: .module,
+					comment: "Cryptographically encrypting a message failed."))
 				
 				return cipher.subdata(in: 0..<cipherSize)
 			#else
@@ -284,7 +298,9 @@ public class AsymmetricPrivateKey: AsymmetricKey {
 		if #available(macOS 10.12.1, iOS 10.0, *) {
 			let algorithm = SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256
 			guard SecKeyIsAlgorithmSupported(key, .sign, algorithm) else {
-				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support signing.", tableName: "AsymmetricCrypto", comment: "Error description for signing exception, which should never actually occur")
+				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support signing.",
+				tableName: "AsymmetricCrypto", bundle: .module,
+				comment: "Error description for signing exception, which should never actually occur")
 
 				let errorDescription = String(format: errorFormat, algorithm.rawValue as String)
 				throw NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
@@ -294,7 +310,7 @@ public class AsymmetricPrivateKey: AsymmetricKey {
 			guard let signature = SecKeyCreateSignature(key, algorithm, data as CFData, &error) as Data? else {
 				throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
 			}
-			
+
 			return signature
 		} else {
 			#if os(iOS)
@@ -308,9 +324,11 @@ public class AsymmetricPrivateKey: AsymmetricKey {
 						SecKeyRawSign(key, AsymmetricKey.signaturePadding, digestBytes /* CC_SHA256_DIGEST_LENGTH */, digest.count, signatureBytes, &signatureSize)
 					}
 				}
-				
-				try SecKey.check(status: status, localizedError: NSLocalizedString("Cryptographically signing failed.", tableName: "AsymmetricCrypto", comment: "Cryptographically signing a message failed."))
-				
+
+				try SecKey.check(status: status, localizedError: NSLocalizedString("Cryptographically signing failed.",
+					tableName: "AsymmetricCrypto", bundle: .module,
+					comment: "Cryptographically signing a message failed."))
+
 				return signature.subdata(in: 0..<signatureSize)
 			#else
 				throw makeOldMacOSUnsupportedError()
@@ -327,7 +345,9 @@ public class AsymmetricPrivateKey: AsymmetricKey {
 		if #available(macOS 10.12.1, iOS 10.0, *) {
 			let algorithm = SecKeyAlgorithm.eciesEncryptionStandardX963SHA256AESGCM
 			guard SecKeyIsAlgorithmSupported(key, .decrypt, algorithm) else {
-				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support decryption.", tableName: "AsymmetricCrypto", comment: "Error description for decryption exception, which should never actually occur")
+				let errorFormat = NSLocalizedString("Elliptic curve algorithm %@ does not support decryption.",
+					tableName: "AsymmetricCrypto", bundle: .module,
+					comment: "Error description for decryption exception, which should never actually occur")
 
 				let errorDescription = String(format: errorFormat, algorithm.rawValue as String)
 				throw NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : errorDescription])
@@ -348,8 +368,10 @@ public class AsymmetricPrivateKey: AsymmetricKey {
 						SecKeyDecrypt(key, AsymmetricKey.encryptionPadding, cipherTextBytes, cipherText.count, plainTextBytes, &plainTextSize)
 					}
 				}
-			try SecKey.check(status: status, localizedError: NSLocalizedString("Decrypting cipher text failed.", tableName: "AsymmetricCrypto", comment: "Cryptographically decrypting a message failed."))
-				
+			try SecKey.check(status: status, localizedError: NSLocalizedString("Decrypting cipher text failed.",
+				tableName: "AsymmetricCrypto", bundle: .module,
+				comment: "Cryptographically decrypting a message failed."))
+
 				return plainText.subdata(in: 0..<plainTextSize)
 			#else
 				throw makeOldMacOSUnsupportedError()
@@ -443,7 +465,10 @@ public struct KeyPair {
 		}
 		
 		var _publicKey, _privateKey: SecKey?
-		try SecKey.check(status: SecKeyGeneratePair(attributes as CFDictionary, &_publicKey, &_privateKey), localizedError: NSLocalizedString("Generating cryptographic key pair failed.", tableName: "AsymmetricCrypto", comment: "Low level crypto error."))
+		try SecKey.check(status: SecKeyGeneratePair(attributes as CFDictionary, &_publicKey, &_privateKey),
+			localizedError: NSLocalizedString("Generating cryptographic key pair failed.",
+				tableName: "AsymmetricCrypto", bundle: .module,
+				comment: "Low level crypto error."))
 		
 		privateKey = AsymmetricPrivateKey(key: _privateKey!, type: type, size: size)
 		publicKey = AsymmetricPublicKey(key: _publicKey!, type: type, size: size)
@@ -479,7 +504,10 @@ public struct KeyPair {
 		#else
 		if #available(iOS 10.0, *) {
 			guard let pubKey = SecKeyCopyPublicKey(privateKey.key) else {
-				throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecInvalidAttributePrivateKeyFormat), userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("No public key derivable.", tableName: "AsymmetricCrypto", comment: "Low level error.")])
+				throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecInvalidAttributePrivateKeyFormat),
+					userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("No public key derivable.",
+						tableName: "AsymmetricCrypto", bundle: .module,
+						comment: "Low level error.")])
 			}
 			publicKey = AsymmetricPublicKey(key: pubKey, type: type, size: size)
 		} else {
@@ -593,6 +621,9 @@ func privateAsymmetricKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm,
 
 /// Creates an error indicating that macOS below 10.12.1 is not supported.
 private func makeOldMacOSUnsupportedError() -> Error {
-	return NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("macOS below 10.12.1 is not supported.", tableName: "AsymmetricCrypto", comment: "Error description for cryptographic operation failure")])
+	return NSError(domain: ErrorDomain, code: NSFeatureUnsupportedError,
+		userInfo: [NSLocalizedDescriptionKey : NSLocalizedString("macOS below 10.12.1 is not supported.",
+			tableName: "AsymmetricCrypto", bundle: .module,
+			comment: "Error description for cryptographic operation failure")])
 }
 

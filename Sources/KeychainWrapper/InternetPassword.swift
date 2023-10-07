@@ -110,7 +110,8 @@ public func persistInternetPasswordInKeychain(_ password: Data, account: String,
 	query[kSecValueData]       = password
 
 	try SecKey.check(status: SecItemAdd(query as CFDictionary, nil),
-		localizedError: NSLocalizedString("Adding internet password to keychain failed.", tableName: "KeychainAccess", comment: "SecItemAdd failed"))
+		localizedError: NSLocalizedString("Adding internet password to keychain failed.", tableName: "KeychainAccess",
+			bundle: .module, comment: "SecItemAdd failed"))
 }
 
 /// Retrieves and decodes an internet password from the keychain.
@@ -161,7 +162,8 @@ public func internetPasswordFromKeychain(account: String, securityDomain: String
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading internet password from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+		localizedError: NSLocalizedString("Reading internet password from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module, comment: "Attempt to read a keychain item failed."))
 
 	guard let passwordData = item as? Data else {
 		throw makeEmptyKeychainDataError()
@@ -185,7 +187,8 @@ public func removeInternetPasswordFromKeychain(account: String, securityDomain: 
 	let query = baseKeychainQuery(account: account, securityDomain: securityDomain, server: server, port: port, path: path, protocolAttribute: protocolAttribute, authenticationType: authenticationType)
 
 	try SecKey.check(status: SecItemDelete(query as CFDictionary),
-		localizedError: NSLocalizedString("Deleting internet password from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to delete a keychain item failed."))
+		localizedError: NSLocalizedString("Deleting internet password from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module, comment: "Attempt to delete a keychain item failed."))
 }
 
 // MARK: - Private

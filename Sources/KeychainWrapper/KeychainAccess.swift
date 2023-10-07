@@ -9,7 +9,7 @@
 import Foundation
 
 /// Extracts a cryptographic key from the system's Keychain.
-@available(*, deprecated, message: "keyFromKeychain is deprecated in v1.1.0, use privateKeyFromKeychain, publicKeyFromKeychain, or symmetricKeyFromKeychain")
+@available(*, deprecated, message: "keyFromKeychain is deprecated in v1.1.0, use privateKeyFromKeychain, or publicKeyFromKeychain")
 public func keyFromKeychain(label: String, tag: Data, keyType: CFString, keyClass: CFString, size: Int) throws -> SecKey {
 	let getquery: [CFString : Any] = [
 		kSecAttrLabel:          label,
@@ -21,13 +21,16 @@ public func keyFromKeychain(label: String, tag: Data, keyType: CFString, keyClas
 		kSecReturnRef:          NSNumber(value: true)]
 
 	var item: CFTypeRef?
-	try SecKey.check(status: SecItemCopyMatching(getquery as CFDictionary, &item), localizedError: NSLocalizedString("Reading key from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+	try SecKey.check(status: SecItemCopyMatching(getquery as CFDictionary, &item),
+		localizedError: NSLocalizedString("Reading key from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to read a keychain item failed."))
 
 	return item as! SecKey
 }
 
 /// Extracts an encoded cryptographic key from the system's Keychain.
-@available(*, deprecated, message: "keyDataFromKeychain is deprecated in v1.1.0, use privateKeyDataFromKeychain, publicKeyDataFromKeychain, or symmetricKeyDataFromKeychain")
+@available(*, deprecated, message: "keyDataFromKeychain is deprecated in v1.1.0, use removeAsymmetricKeyFromKeychain")
 public func keyDataFromKeychain(label: String, tag: Data, keyType: CFString, keyClass: CFString, size: Int) throws -> Data {
 	let getquery: [CFString : Any] = [
 		kSecAttrLabel:          label,
@@ -39,13 +42,16 @@ public func keyDataFromKeychain(label: String, tag: Data, keyType: CFString, key
 		kSecReturnData:         NSNumber(value: true)]
 
 	var item: CFTypeRef?
-	try SecKey.check(status: SecItemCopyMatching(getquery as CFDictionary, &item), localizedError: NSLocalizedString("Reading key data from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+	try SecKey.check(status: SecItemCopyMatching(getquery as CFDictionary, &item),
+		localizedError: NSLocalizedString("Reading key data from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to read a keychain item failed."))
 
 	return (item as! CFData) as Data
 }
 
 /// Inserts a cryptographic key into the system's Keychain.
-@available(*, deprecated, message: "addToKeychain is deprecated in v1.1.0, use addPrivateKeyToKeychain, addPublicKeyToKeychain, or addSymmetricKeyToKeychain")
+@available(*, deprecated, message: "addToKeychain is deprecated in v1.1.0, use addAsymmetricKeyToKeychain")
 public func addToKeychain(key: SecKey, label: String, tag: Data, keyType: CFString, keyClass: CFString, size: Int) throws -> Data {
 	let addquery: [CFString : Any]
 	if #available(OSX 10.15, iOS 13.0, *) {
@@ -72,7 +78,10 @@ public func addToKeychain(key: SecKey, label: String, tag: Data, keyType: CFStri
 	}
 
 	var item: CFTypeRef?
-	try SecKey.check(status: SecItemAdd(addquery as CFDictionary, &item), localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "KeychainAccess", comment: "Writing raw key data to the keychain produced an error."))
+	try SecKey.check(status: SecItemAdd(addquery as CFDictionary, &item),
+		localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Writing raw key data to the keychain produced an error."))
 
 	return (item as! CFData) as Data
 }
@@ -87,7 +96,10 @@ public func removeFromKeychain(tag: Data, keyType: CFString, keyClass: CFString,
 		kSecAttrApplicationTag: tag,
 		kSecAttrKeyType:        keyType]
 
-	try SecKey.check(status: SecItemDelete(remquery as CFDictionary), localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess", comment: "Removing an item from the keychain produced an error."))
+	try SecKey.check(status: SecItemDelete(remquery as CFDictionary),
+		localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Removing an item from the keychain produced an error."))
 }
 
 /// Writes a generic unspecified secret, overwriting a possible previous value.
@@ -103,7 +115,10 @@ public func persistSecretInKeychain(secret: String, label: String) throws {
 		kSecAttrLabel:       label,
 		kSecValueData:       tokenData]
 
-	try SecKey.check(status: SecItemAdd(query as CFDictionary, nil), localizedError: NSLocalizedString("Adding secret to keychain failed.", tableName: "KeychainAccess", comment: "SecItemAdd failed"))
+	try SecKey.check(status: SecItemAdd(query as CFDictionary, nil),
+		localizedError: NSLocalizedString("Adding secret to keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "SecItemAdd failed"))
 }
 
 /// Retrieves a generic unspecified secret from the keychain.
@@ -116,7 +131,10 @@ public func secretFromKeychain(label: String) throws -> String {
 		kSecReturnData:      true]
 
 	var item: CFTypeRef?
-	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item), localizedError: NSLocalizedString("Reading generic secret from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
+		localizedError: NSLocalizedString("Reading generic secret from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to read a keychain item failed."))
 
 	guard let passwordData = item as? Data,
 		  let password = String(data: passwordData, encoding: String.Encoding.utf8) else {
@@ -137,7 +155,10 @@ public func removeSecretFromKeychain(label: String) throws {
 		kSecAttrLabel:       label,
 		kSecMatchLimit:      kSecMatchLimitAll]
 
-	try SecKey.check(status: SecItemDelete(query as CFDictionary), localizedError: NSLocalizedString("Deleting secret from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to delete a keychain item failed."))
+	try SecKey.check(status: SecItemDelete(query as CFDictionary),
+		localizedError: NSLocalizedString("Deleting secret from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to delete a keychain item failed."))
 #else
 	let query: [CFString : Any] = [
 		kSecClass:               kSecClassGenericPassword,
@@ -146,12 +167,18 @@ public func removeSecretFromKeychain(label: String) throws {
 		kSecReturnPersistentRef: true]
 
 	var itemArray: CFTypeRef?
-	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &itemArray), localizedError: NSLocalizedString("Reading generic secret from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &itemArray),
+		localizedError: NSLocalizedString("Reading generic secret from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to read a keychain item failed."))
 
 	if let items = itemArray as? [Data] {
 		try items.forEach {
 			let query: [CFString : Any] = [kSecValuePersistentRef: $0]
-			try SecKey.check(status: SecItemDelete(query as CFDictionary), localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess", comment: "Removing an item from the keychain produced an error."))
+			try SecKey.check(status: SecItemDelete(query as CFDictionary),
+				localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess",
+					bundle: .module,
+					comment: "Removing an item from the keychain produced an error."))
 		}
 	} else {
 		throw makeFatalError()
@@ -168,7 +195,10 @@ public func persistInternetPasswordInKeychain(account: String, url: URL, _ passw
 		kSecAttrServer:  url.absoluteString,
 		kSecValueData:   password]
 
-	try SecKey.check(status: SecItemAdd(query as CFDictionary, nil), localizedError: NSLocalizedString("Adding internet password to keychain failed.", tableName: "KeychainAccess", comment: "SecItemAdd failed"))
+	try SecKey.check(status: SecItemAdd(query as CFDictionary, nil),
+		localizedError: NSLocalizedString("Adding internet password to keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "SecItemAdd failed"))
 }
 
 /// Retrieves an internet password from the keychain.
@@ -182,7 +212,10 @@ public func internetPasswordFromKeychain(account: String, url: URL) throws -> St
 		kSecReturnData:  true]
 
 	var item: CFTypeRef?
-	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item), localizedError: NSLocalizedString("Reading internet password from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
+		localizedError: NSLocalizedString("Reading internet password from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to read a keychain item failed."))
 
 	guard let passwordData = item as? Data,
 		  let password = String(data: passwordData, encoding: String.Encoding.utf8) else {
@@ -200,5 +233,8 @@ public func removeInternetPasswordFromKeychain(account: String, url: URL) throws
 		kSecAttrAccount: account,
 		kSecAttrServer:  url.absoluteString]
 
-	try SecKey.check(status: SecItemDelete(query as CFDictionary), localizedError: NSLocalizedString("Deleting internet password from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to delete a keychain item failed."))
+	try SecKey.check(status: SecItemDelete(query as CFDictionary),
+		localizedError: NSLocalizedString("Deleting internet password from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to delete a keychain item failed."))
 }

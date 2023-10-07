@@ -34,7 +34,9 @@ public func persistGenericPasswordInKeychain(_ password: Data, account: String, 
 	query[kSecAttrComment]     = KeychainWrapperCommentAttribute
 	query[kSecValueData]       = password
 
-	try SecKey.check(status: SecItemAdd(query as CFDictionary, nil), localizedError: NSLocalizedString("Adding generic password to keychain failed.", tableName: "KeychainAccess", comment: "SecItemAdd failed"))
+	try SecKey.check(status: SecItemAdd(query as CFDictionary, nil),
+		localizedError: NSLocalizedString("Adding generic password to keychain failed.", tableName: "KeychainAccess",
+			bundle: .module, comment: "SecItemAdd failed"))
 }
 
 /// Retrieves a generic UTF-8 encoded secret from the keychain.
@@ -62,7 +64,8 @@ public func genericPasswordFromKeychain(account: String, service: String) throws
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading generic password from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+		localizedError: NSLocalizedString("Reading generic password from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module, comment: "Attempt to read a keychain item failed."))
 
 	guard let passwordData = item as? Data else {
 		throw makeFatalError()
@@ -77,7 +80,8 @@ public func genericPasswordFromKeychain(account: String, service: String) throws
 @available(OSX 10.15, iOS 13.0, *)
 public func removeGenericPasswordFromKeychain(account: String, service: String) throws {
 	try SecKey.check(status: SecItemDelete(baseKeychainQuery(account: account, service: service) as CFDictionary),
-		localizedError: NSLocalizedString("Deleting generic password from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to delete a keychain item failed."))
+		localizedError: NSLocalizedString("Deleting generic password from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module, comment: "Attempt to delete a keychain item failed."))
 }
 
 // MARK: - Private

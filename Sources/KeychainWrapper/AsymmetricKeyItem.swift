@@ -78,7 +78,9 @@ public func generateAsymmetricKeyPair(privateTag: Data, publicTag: Data, algorit
 	}
 
 	var publicKeyItem, privateKeyItem: SecKey?
-	try SecKey.check(status: SecKeyGeneratePair(attributes as CFDictionary, &publicKeyItem, &privateKeyItem), localizedError: NSLocalizedString("Generating cryptographic key pair failed.", tableName: "AsymmetricCrypto", comment: "Low level crypto error."))
+	try SecKey.check(status: SecKeyGeneratePair(attributes as CFDictionary, &publicKeyItem, &privateKeyItem),
+		localizedError: NSLocalizedString("Generating cryptographic key pair failed.",
+			tableName: "AsymmetricCrypto", bundle: .module, comment: "Low level crypto error."))
 
 	guard let publicKey = publicKeyItem, let privateKey = privateKeyItem else {
 		throw makeFatalError()
@@ -99,7 +101,9 @@ public func publicKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, siz
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading key from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+		localizedError: NSLocalizedString("Reading key from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to read a keychain item failed."))
 
 	return item as! SecKey
 }
@@ -114,7 +118,9 @@ public func privateKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, si
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading key from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+		localizedError: NSLocalizedString("Reading key from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to read a keychain item failed."))
 
 	return item as! SecKey
 }
@@ -129,7 +135,9 @@ public func publicKeyDataFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm,
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading key data from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+		localizedError: NSLocalizedString("Reading key data from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to read a keychain item failed."))
 
 	return (item as! CFData) as Data
 }
@@ -144,7 +152,9 @@ public func privateKeyDataFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading key data from keychain failed.", tableName: "KeychainAccess", comment: "Attempt to read a keychain item failed."))
+		localizedError: NSLocalizedString("Reading key data from keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Attempt to read a keychain item failed."))
 
 	return (item as! CFData) as Data
 }
@@ -163,7 +173,9 @@ public func addPublicKeyToKeychain(_ key: SecKey, tag: Data, algorithm: Asymmetr
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemAdd(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "KeychainAccess", comment: "Writing raw key data to the keychain produced an error."))
+		localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Writing raw key data to the keychain produced an error."))
 
 	return (item as! CFData) as Data
 }
@@ -180,7 +192,9 @@ public func addPrivateKeyToKeychain(_ key: SecKey, tag: Data, algorithm: Asymmet
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemAdd(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "KeychainAccess", comment: "Writing raw key data to the keychain produced an error."))
+		localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Writing raw key data to the keychain produced an error."))
 
 	return (item as! CFData) as Data
 }
@@ -195,7 +209,9 @@ public func removePublicKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorith
 	let query = baseKeychainQuery(keyClass: kSecAttrKeyClassPublic, tag: tag, algorithm: algorithm, size: size)
 
 	try SecKey.check(status: SecItemDelete(query as CFDictionary),
-		localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess", comment: "Removing an item from the keychain produced an error."))
+		localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Removing an item from the keychain produced an error."))
 }
 
 /// Purges a cryptographic key from the system's Keychain.
@@ -206,7 +222,9 @@ public func removePrivateKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorit
 	let query = baseKeychainQuery(keyClass: kSecAttrKeyClassPrivate, tag: tag, algorithm: algorithm, size: size)
 
 	try SecKey.check(status: SecItemDelete(query as CFDictionary),
-		localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess", comment: "Removing an item from the keychain produced an error."))
+		localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess",
+			bundle: .module,
+			comment: "Removing an item from the keychain produced an error."))
 }
 
 // MARK: - Private
