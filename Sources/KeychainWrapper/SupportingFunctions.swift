@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import CommonCrypto
 
 /// A hard-coded value provided for the `kSecAttrDescription` attribute when inserting passwords.
 ///
@@ -94,18 +93,6 @@ extension Data {
 	/// Thrown when `count` is zero.
 	public struct EmptyError: Error {}
 
-	/// Computes the SHA-256 digest hash of this data.
-	public func sha256() -> Data {
-		let digestLength = Int(CC_SHA256_DIGEST_LENGTH)
-		var digest = Data(count: digestLength)
-		_ = digest.withUnsafeMutablePointer({ (digestMutableBytes) in
-			self.withUnsafePointer({ (plainTextBytes) in
-				CC_SHA256(plainTextBytes, CC_LONG(self.count), digestMutableBytes)
-			})
-		})
-		return digest
-	}
-
 	/// Allows operations on the binary data via an `UnsafePointer`.
 	///
 	/// This function is a replacement of the old `mutating func withUnsafeBytes<ResultType, ContentType>(_ body: (UnsafePointer<ContentType>) throws -> ResultType) rethrows -> ResultType`.
@@ -127,45 +114,4 @@ extension Data {
 			return try body(bytePointer)
 		}
 	}
-}
-
-/// Inserts a cryptographic key into the system's Keychain.
-///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-func addAsymmetricKeyToKeychain(key: SecKey, tag: Data, keyType: CFString, keyClass: CFString, size: Int) throws -> Data {
-	let addquery: [CFString : Any] = [
-		kSecUseDataProtectionKeychain: true,
-		kSecClass:                     kSecClassKey,
-		kSecAttrKeyClass:              keyClass,
-		kSecValueRef:                  key,
-		kSecAttrKeySizeInBits:         size,
-		kSecAttrApplicationTag:        tag,
-		kSecAttrKeyType:               keyType,
-		kSecReturnData:                NSNumber(value: true)]
-
-	var item: CFTypeRef?
-	try SecKey.check(status: SecItemAdd(addquery as CFDictionary, &item),
-		localizedError: NSLocalizedString("Adding key data to keychain failed.",
-			tableName: "KeychainAccess", bundle: .module, comment: "Writing raw key data to the keychain produced an error."))
-
-	return (item as! CFData) as Data
-}
-
-/// Purges a cryptographic key from the system's Keychain.
-///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-func removeAsymmetricKeyFromKeychain(tag: Data, keyType: CFString, keyClass: CFString, size: Int) throws {
-	let remquery: [CFString : Any] = [
-		kSecUseDataProtectionKeychain: true,
-		kSecClass:                     kSecClassKey,
-		kSecAttrKeyClass:              keyClass,
-		kSecAttrKeySizeInBits:         size,
-		kSecAttrApplicationTag:        tag,
-		kSecAttrKeyType:               keyType]
-
-	try SecKey.check(status: SecItemDelete(remquery as CFDictionary),
-		localizedError: NSLocalizedString("Deleting keychain item failed.",
-			tableName: "KeychainAccess", bundle: .module, comment: "Removing an item from the keychain produced an error."))
 }

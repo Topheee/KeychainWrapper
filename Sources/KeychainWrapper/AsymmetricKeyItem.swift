@@ -15,7 +15,7 @@ import Foundation
 /// Technical note: This is the selector for the `kSecAttrKeyType`.
 ///
 /// > Note: Added in v1.1.0.
-public enum AsymmetricAlgorithm {
+public enum AsymmetricAlgorithm: Sendable, Codable {
 	case ec, rsa
 
 	/// The value for the `kSecAttrKeyType` key.
@@ -28,6 +28,27 @@ public enum AsymmetricAlgorithm {
 		}
 	}
 }
+
+/// Part of an asymmetric key pair.
+///
+/// Technical note: This is the selector for the `kSecAttrKeyClass`.
+///
+/// > Note: Added in v2.0.0.
+public enum AsymmetricKeyPart: Sendable, Codable {
+	case privateKey, publicKey
+
+	/// The value for the `kSecAttrKeyClass` key.
+	var keyClass: CFString {
+		switch self {
+		case .privateKey:
+			return kSecAttrKeyClassPrivate
+		case .publicKey:
+			return kSecAttrKeyClassPublic
+		}
+	}
+}
+
+
 
 // MARK: Key Item Generation
 
@@ -45,7 +66,7 @@ public func generateAsymmetricKeyPair(privateTag: Data, publicTag: Data, algorit
 
 #if COMPILE_TEST
 #else
-        attributes[kSecUseDataProtectionKeychain] = true
+	attributes[kSecUseDataProtectionKeychain] = true
 #endif
 
 	if useEnclave {
@@ -91,68 +112,40 @@ public func generateAsymmetricKeyPair(privateTag: Data, publicTag: Data, algorit
 
 // MARK: Key Item Retrieval
 
-/// Extracts an asymmetric public cryptographic key from the system's Keychain.
+/// Extracts an asymmetric cryptographic key from the system's Keychain.
 ///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-public func publicKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> SecKey {
-	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPublic, tag: tag, algorithm: algorithm, size: size)
+/// > Note: Added in v2.0.0.
+public func asymmetricKeyFromKeychain(tag: Data, part: AsymmetricKeyPart,
+									  algorithm: AsymmetricAlgorithm,
+									  size: Int) throws -> SecKey {
+	var query = baseKeychainQuery(keyClass: part.keyClass, tag: tag,
+								  algorithm: algorithm, size: size)
 	query[kSecReturnRef] = NSNumber(value: true)
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading key from keychain failed.", tableName: "KeychainAccess",
+		localizedError: NSLocalizedString("Reading key from keychain failed.",
+										  tableName: "KeychainAccess",
 			bundle: .module,
 			comment: "Attempt to read a keychain item failed."))
 
 	return item as! SecKey
 }
 
-/// Extracts an asymmetric private cryptographic key from the system's Keychain.
+/// Extracts an encoded asymmetric cryptographic key from the system's Keychain.
 ///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-public func privateKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> SecKey {
-	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPrivate, tag: tag, algorithm: algorithm, size: size)
-	query[kSecReturnRef] = NSNumber(value: true)
-
-	var item: CFTypeRef?
-	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading key from keychain failed.", tableName: "KeychainAccess",
-			bundle: .module,
-			comment: "Attempt to read a keychain item failed."))
-
-	return item as! SecKey
-}
-
-/// Extracts an encoded asymmetric public cryptographic key from the system's Keychain.
-///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-public func publicKeyDataFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> Data {
-	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPublic, tag: tag, algorithm: algorithm, size: size)
+/// > Note: Added in v2.0.0.
+public func asymmetricKeyDataFromKeychain(tag: Data, part: AsymmetricKeyPart,
+										  algorithm: AsymmetricAlgorithm,
+										  size: Int) throws -> Data {
+	var query = baseKeychainQuery(keyClass: part.keyClass, tag: tag,
+								  algorithm: algorithm, size: size)
 	query[kSecReturnData] = NSNumber(value: true)
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading key data from keychain failed.", tableName: "KeychainAccess",
-			bundle: .module,
-			comment: "Attempt to read a keychain item failed."))
-
-	return (item as! CFData) as Data
-}
-
-/// Extracts an encoded asymmetric private cryptographic key from the system's Keychain.
-///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-public func privateKeyDataFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> Data {
-	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPrivate, tag: tag, algorithm: algorithm, size: size)
-	query[kSecReturnData] = NSNumber(value: true)
-
-	var item: CFTypeRef?
-	try SecKey.check(status: SecItemCopyMatching(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Reading key data from keychain failed.", tableName: "KeychainAccess",
+		localizedError: NSLocalizedString("Reading key data from keychain failed.",
+										  tableName: "KeychainAccess",
 			bundle: .module,
 			comment: "Attempt to read a keychain item failed."))
 
@@ -163,36 +156,22 @@ public func privateKeyDataFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm
 
 /// Inserts a cryptographic key into the system's Keychain.
 ///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-public func addPublicKeyToKeychain(_ key: SecKey, tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> Data {
-	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPublic, tag: tag, algorithm: algorithm, size: size)
-	query[kSecAttrLabel]       = KeyItemLabelAttribute
-	query[kSecValueRef]        = key
-	query[kSecReturnData]      = NSNumber(value: true)
+/// > Note: Added in v2.0.0.
+@discardableResult
+public func addAsymmetricKeyToKeychain(_ key: SecKey, tag: Data,
+									   part: AsymmetricKeyPart,
+									   algorithm: AsymmetricAlgorithm,
+									   size: Int) throws -> Data {
+	var query = baseKeychainQuery(keyClass: part.keyClass, tag: tag,
+								  algorithm: algorithm, size: size)
+	query[kSecAttrLabel]  = KeyItemLabelAttribute
+	query[kSecValueRef]   = key
+	query[kSecReturnData] = NSNumber(value: true)
 
 	var item: CFTypeRef?
 	try SecKey.check(status: SecItemAdd(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "KeychainAccess",
-			bundle: .module,
-			comment: "Writing raw key data to the keychain produced an error."))
-
-	return (item as! CFData) as Data
-}
-
-/// Inserts a cryptographic key into the system's Keychain.
-///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-public func addPrivateKeyToKeychain(_ key: SecKey, tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws -> Data {
-	var query = baseKeychainQuery(keyClass: kSecAttrKeyClassPrivate, tag: tag, algorithm: algorithm, size: size)
-	query[kSecAttrLabel]       = KeyItemLabelAttribute
-	query[kSecValueRef]        = key
-	query[kSecReturnData]      = NSNumber(value: true)
-
-	var item: CFTypeRef?
-	try SecKey.check(status: SecItemAdd(query as CFDictionary, &item),
-		localizedError: NSLocalizedString("Adding key data to keychain failed.", tableName: "KeychainAccess",
+		localizedError: NSLocalizedString("Adding key data to keychain failed.",
+										  tableName: "KeychainAccess",
 			bundle: .module,
 			comment: "Writing raw key data to the keychain produced an error."))
 
@@ -203,26 +182,17 @@ public func addPrivateKeyToKeychain(_ key: SecKey, tag: Data, algorithm: Asymmet
 
 /// Purges a cryptographic key from the system's Keychain.
 ///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-public func removePublicKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws {
-	let query = baseKeychainQuery(keyClass: kSecAttrKeyClassPublic, tag: tag, algorithm: algorithm, size: size)
+/// > Note: Added in v2.0.0.
+public func removeAsymmetricKeyFromKeychain(tag: Data,
+											part: AsymmetricKeyPart,
+											algorithm: AsymmetricAlgorithm,
+											size: Int) throws {
+	let query = baseKeychainQuery(keyClass: part.keyClass, tag: tag,
+								  algorithm: algorithm, size: size)
 
 	try SecKey.check(status: SecItemDelete(query as CFDictionary),
-		localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess",
-			bundle: .module,
-			comment: "Removing an item from the keychain produced an error."))
-}
-
-/// Purges a cryptographic key from the system's Keychain.
-///
-/// > Note: Added in v1.1.0.
-@available(OSX 10.15, iOS 13.0, *)
-public func removePrivateKeyFromKeychain(tag: Data, algorithm: AsymmetricAlgorithm, size: Int) throws {
-	let query = baseKeychainQuery(keyClass: kSecAttrKeyClassPrivate, tag: tag, algorithm: algorithm, size: size)
-
-	try SecKey.check(status: SecItemDelete(query as CFDictionary),
-		localizedError: NSLocalizedString("Deleting keychain item failed.", tableName: "KeychainAccess",
+		localizedError: NSLocalizedString("Deleting keychain item failed.",
+										  tableName: "KeychainAccess",
 			bundle: .module,
 			comment: "Removing an item from the keychain produced an error."))
 }

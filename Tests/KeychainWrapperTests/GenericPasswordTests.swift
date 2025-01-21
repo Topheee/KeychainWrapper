@@ -29,9 +29,9 @@ final class GenericPasswordTests: XCTestCase {
 		XCTAssertEqual(try genericPasswordFromKeychain(account: strangeValue, service: strangeValue), pwData)
 	}
 
-	func testDeleteFailsOnNonExistantAccount() throws {
-		XCTAssertThrowsError(try removeGenericPasswordFromKeychain(account: "non-existant", service: normalService))
-		XCTAssertThrowsError(try removeGenericPasswordFromKeychain(account: normalAccount, service: "non-existant"))
-		XCTAssertThrowsError(try removeGenericPasswordFromKeychain(account: "non-existant", service: "non-existant"))
+	func testDeleteFailsOnNonExistentAccount() throws {
+		XCTAssertThrowsError(try removeGenericPasswordFromKeychain(account: "non-existent", service: normalService))
+		XCTAssertThrowsError(try removeGenericPasswordFromKeychain(account: normalAccount, service: "non-existent"))
+		XCTAssertThrowsError(try removeGenericPasswordFromKeychain(account: "non-existent", service: "non-existent"))
 	}
 }

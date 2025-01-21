@@ -1,15 +1,16 @@
 # KeychainWrapper
 
-Wrapper around the Keychain API on iOS and macOS.
+Swift 6 (`Sendable`-conforming) wrapper around the Keychain API on iOS and
+macOS. Depends on `Foundation` only.
 
-The methods are wrappers around the different Keychain classes and require the properties that fully qualify a Keychain item.
-> See the [documentation](https://developer.apple.com/documentation/security/errsecduplicateitem) for a list of the primary keys per class.
+These types of keychain items are supported:
 
-## Known Issues
-
-The Keychain queries used by the deprecated `…Secret…Keychain()` functions are not 'fully qualified', meaning that if a secret is created with the same label and additional parameters (for instance `kSecAttrAccount`), this additional secret will interfere with the ones created by this library.
-
-To prevent this issue, do not use the deprecated methods or make sure that the labels used for the secrets managed by this library are unique in the program.
+- Asymmetric keys
+  - `kSecAttrKeyTypeECSECPrimeRandom`: P-192, P-256, P-384, and P-521 curves.
+  - `kSecAttrKeyTypeRSA`: RSA keys.
+- Symmetric keys
+  - Internet passwords
+  - Generic passwords
 
 ## Testing
 
@@ -18,9 +19,17 @@ Invoke the tests with:
 swift test -Xswiftc -DCOMPILE_TEST
 ```
 
-This is necessary since I did not get the `kSecUseDataProtectionKeychain` option to work during testing on macOS, it always throws `errSecMissingEntitlement`.
+This is necessary since I did not get the `kSecUseDataProtectionKeychain`
+option to work during testing on macOS; it always throws
+`errSecMissingEntitlement`.
 
-They are still failing, since SecKeyGeneratePair behaves differently on iOS and macOS … and it probably won't anymore if I can get `kSecUseDataProtectionKeychain` to run on macOS.
+They are still failing, since `SecKeyGeneratePair` behaves differently on iOS
+and macOS … and it probably won't anymore if I can get
+`kSecUseDataProtectionKeychain` to run on macOS.
+
+> Hint: Testing will create a lot of items in your Keychain app on macOS
+beginning with `KeychainWrapper …` in your default keychain.
+You can safely delete them.
 
 ## Further Info
 - [Primary Keys](https://developer.apple.com/documentation/security/errsecduplicateitem)
