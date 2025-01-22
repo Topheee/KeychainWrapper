@@ -11,8 +11,9 @@ import Foundation
 /// Represents a public or private asymmetric key in the keychain.
 public struct AsymmetricKeyProperties: Sendable, Codable {
 	/// Padding to be used for cryptographic operations applying this key.
-	fileprivate static let signaturePadding: SecPadding = [],
-						   encryptionPadding: SecPadding = [] // .PKCS1SHA256
+	fileprivate static
+	let signaturePadding: SecPadding = [],
+		encryptionPadding: SecPadding = [] // .PKCS1SHA256
 
 	/// Which properties should be serialized; automatically read by ``Codable`` protocol.
 	enum CodingKeys: String, CodingKey {
@@ -20,8 +21,15 @@ public struct AsymmetricKeyProperties: Sendable, Codable {
 	}
 
 	/// Cryptographic property of `key`.
-	public let part: AsymmetricKeyPart, algorithm: AsymmetricAlgorithm,
-			   size: Int
+	public
+	let part: AsymmetricKeyPart, algorithm: AsymmetricAlgorithm, size: Int
+
+	public
+	init(part: AsymmetricKeyPart, algorithm: AsymmetricAlgorithm, size: Int) {
+		self.part = part
+		self.algorithm = algorithm
+		self.size = size
+	}
 }
 
 /// Represents a public or private asymmetric key in the keychain.
@@ -34,6 +42,11 @@ public struct AsymmetricKeyKeychainID: Sendable {
 
 	/// Cryptographic property of `key`.
 	public let tag: Data, properties: AsymmetricKeyProperties
+
+	public init(tag: Data, properties: AsymmetricKeyProperties) {
+		self.tag = tag
+		self.properties = properties
+	}
 }
 
 extension AsymmetricKeyKeychainID {
@@ -55,7 +68,18 @@ extension AsymmetricKeyKeychainID {
 
 	/// Whether they item exists in the keychain.
 	public var persisted: Bool {
-		return (try? key()) != nil
+		get throws {
+			do {
+				_ = try key()
+				return true
+			} catch {
+				if (error as NSError).code == errSecItemNotFound {
+					return false
+				} else {
+					throw error
+				}
+			}
+		}
 	}
 }
 
@@ -68,6 +92,11 @@ public struct AsymmetricKeyInMemory: Sendable {
 
 	/// Cryptographic property of `key`.
 	public let data: Data, properties: AsymmetricKeyProperties
+
+	public init(data: Data, properties: AsymmetricKeyProperties) {
+		self.data = data
+		self.properties = properties
+	}
 }
 
 extension AsymmetricKeyInMemory {
@@ -142,11 +171,13 @@ extension AsymmetricKeyBacking {
 
 	/// Whether they item exists in the keychain.
 	public var persisted: Bool {
-		switch self {
-		case .memory(_):
-			return false
-		case .keychain(let keyID):
-			return keyID.persisted
+		get throws {
+			switch self {
+			case .memory(_):
+				return false
+			case .keychain(let keyID):
+				return try keyID.persisted
+			}
 		}
 	}
 }

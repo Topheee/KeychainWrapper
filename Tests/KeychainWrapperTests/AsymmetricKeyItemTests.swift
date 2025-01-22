@@ -26,8 +26,6 @@ final class KeyItemTests: XCTestCase {
 
 		XCTAssertNoThrow(try asymmetricKeyDataFromKeychain(tag: normalPublicTag, part: .publicKey, algorithm: ecAlgorithm, size: normalECAsymmetricKeySize))
 
-		let data = try asymmetricKeyDataFromKeychain(tag: normalPublicTag, part: .publicKey, algorithm: ecAlgorithm, size: normalECAsymmetricKeySize)
-
 		// should throw error since the key is set to be non-extractible
 		XCTAssertThrowsError(try asymmetricKeyDataFromKeychain(tag: normalPrivateTag, part: .privateKey, algorithm: ecAlgorithm, size: normalECAsymmetricKeySize))
 
