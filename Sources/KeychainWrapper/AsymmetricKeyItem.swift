@@ -54,11 +54,19 @@ public enum AsymmetricKeyPart: Sendable, Codable {
 
 /// Generates a key pair and optionally stores it in the keychain.
 ///
-/// - returns: First the public key and second the private key.
+/// - Parameters:
+///   - privateKeyTag: The identifier of the key in the keychain. Corresponds to `kSecAttrApplicationTag`.
+///   - algorithm: The algorithm of this key. Corresponds to `kSecAttrKeyType`.
+///   - size: The size of this key. Corresponds to `kSecAttrKeySizeInBits`.
+///   - useEnclave: Whether this key is only available if the device is unlocked. Corresponds to `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`.
+/// - Returns: First the public key and second the private key.
 ///
-/// > Note: Added in v1.1.0.
+/// > Note: Added in v3.0.0.
 @available(OSX 10.15, iOS 13.0, *)
-public func generateAsymmetricKeyPair(privateTag: Data, publicTag: Data, algorithm: AsymmetricAlgorithm, size: Int, persistent: Bool, useEnclave: Bool = false) throws -> (SecKey, SecKey) {
+public func generateAsymmetricPrivateKey(
+	privateKeyTag: Data, algorithm: AsymmetricAlgorithm, size: Int,
+	useEnclave: Bool = false)
+throws -> SecKey {
 	var attributes: [CFString : Any] = [
 		kSecAttrLabel:         KeyItemLabelAttribute,
 		kSecAttrKeyType:       algorithm.keyType,
@@ -77,37 +85,25 @@ public func generateAsymmetricKeyPair(privateTag: Data, publicTag: Data, algorit
 
 		attributes[kSecAttrTokenID] = kSecAttrTokenIDSecureEnclave
 		attributes[kSecPrivateKeyAttrs] = [
-			kSecAttrIsPermanent:    persistent,
-			kSecAttrApplicationTag: privateTag,
-			kSecAttrAccessControl:  access
-			] as CFDictionary
-		attributes[kSecPublicKeyAttrs] = [
-			kSecAttrIsPermanent:    persistent,
-			kSecAttrApplicationTag: publicTag,
+			kSecAttrIsPermanent:    true,
+			kSecAttrApplicationTag: privateKeyTag,
 			kSecAttrAccessControl:  access
 			] as CFDictionary
 	} else {
 		attributes[kSecAttrIsExtractable] = false
 		attributes[kSecPrivateKeyAttrs] = [
-			kSecAttrIsPermanent:    persistent,
-			kSecAttrApplicationTag: privateTag
-			] as CFDictionary
-		attributes[kSecPublicKeyAttrs] = [
-			kSecAttrIsPermanent:    persistent,
-			kSecAttrApplicationTag: publicTag
+			kSecAttrIsPermanent:    true,
+			kSecAttrApplicationTag: privateKeyTag
 			] as CFDictionary
 	}
 
-	var publicKeyItem, privateKeyItem: SecKey?
-	try SecKey.check(status: SecKeyGeneratePair(attributes as CFDictionary, &publicKeyItem, &privateKeyItem),
-		localizedError: NSLocalizedString("Generating cryptographic key pair failed.",
-			tableName: "AsymmetricCrypto", bundle: .module, comment: "Low level crypto error."))
-
-	guard let publicKey = publicKeyItem, let privateKey = privateKeyItem else {
-		throw makeFatalError()
+	var error: Unmanaged<CFError>?
+	guard let privateKey = SecKeyCreateRandomKey(
+		attributes as CFDictionary, &error) else {
+		throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
 	}
 
-	return (publicKey, privateKey)
+	return privateKey
 }
 
 // MARK: Key Item Retrieval
@@ -164,7 +160,6 @@ public func addAsymmetricKeyToKeychain(_ key: SecKey, tag: Data,
 									   size: Int) throws -> Data {
 	var query = baseKeychainQuery(keyClass: part.keyClass, tag: tag,
 								  algorithm: algorithm, size: size)
-	query[kSecAttrLabel]  = KeyItemLabelAttribute
 	query[kSecValueRef]   = key
 	query[kSecReturnData] = NSNumber(value: true)
 
@@ -206,13 +201,21 @@ private let KeyItemLabelAttribute = "KeychainWrapper Key Item"
 
 /// Produces the query parameters with all primary key attributes for asymmetric key items.
 @available(OSX 10.15, iOS 13.0, *)
-private func baseKeychainQuery(keyClass: CFString, tag: Data, algorithm: AsymmetricAlgorithm, size: Int) -> [CFString: Any] {
-        // For key items, the primary keys include kSecAttrKeyClass, kSecAttrKeyType, kSecAttrApplicationLabel, kSecAttrApplicationTag, kSecAttrKeySizeInBits, and kSecAttrEffectiveKeySize.
-	// However, for asymmetric keys kSecAttrApplicationLabel is derived from the hash of the public key and symmetric keys are not really supported: https://stackoverflow.com/questions/22172229/how-to-use-secitemadd-to-store-a-symmetric-key-in-os-x
-	// kSecAttrEffectiveKeySize is automatically set depended on kSecAttrKeyType and kSecAttrKeySizeInBits.
+private func baseKeychainQuery(keyClass: CFString, tag: Data,
+							   algorithm: AsymmetricAlgorithm,
+							   size: Int) -> [CFString: Any] {
+	// For key items, the primary keys include kSecAttrKeyClass,
+	// kSecAttrKeyType, kSecAttrApplicationLabel, kSecAttrApplicationTag,
+	// kSecAttrKeySizeInBits, and kSecAttrEffectiveKeySize.
+	// However, for asymmetric keys kSecAttrApplicationLabel is derived from
+	// the hash of the public key and symmetric keys are not really supported:
+	// https://stackoverflow.com/questions/22172229/how-to-use-secitemadd-to-store-a-symmetric-key-in-os-x
+	// kSecAttrEffectiveKeySize is automatically set depended on
+	// kSecAttrKeyType and kSecAttrKeySizeInBits.
 
-        var query: [CFString : Any] = [
+	var query: [CFString : Any] = [
 		kSecClass:              kSecClassKey,
+		kSecAttrLabel:          KeyItemLabelAttribute,
 		kSecAttrKeyClass:       keyClass,
 		kSecAttrKeySizeInBits:  size,
 		kSecAttrApplicationTag: tag,

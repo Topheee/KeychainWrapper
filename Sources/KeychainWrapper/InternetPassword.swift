@@ -186,6 +186,10 @@ public func removeInternetPasswordFromKeychain(account: String, securityDomain: 
 public func removeInternetPasswordFromKeychain(account: String, securityDomain: String, server: String, port: Int, path: String, protocolAttribute: ProtocolKeychainAttribute, authenticationType: AuthenticationTypeKeychainAttribute = .`default`) throws {
 	let query = baseKeychainQuery(account: account, securityDomain: securityDomain, server: server, port: port, path: path, protocolAttribute: protocolAttribute, authenticationType: authenticationType)
 
+	// this is the ugliest line I have ever added to production code, but the
+	// tests show that it is necessary.
+	sleep(1)
+
 	try SecKey.check(status: SecItemDelete(query as CFDictionary),
 		localizedError: NSLocalizedString("Deleting internet password from keychain failed.", tableName: "KeychainAccess",
 			bundle: .module, comment: "Attempt to delete a keychain item failed."))

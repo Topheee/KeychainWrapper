@@ -1,37 +1,169 @@
-import XCTest
+//
+//  AsymmetricCryptoTests.swift
+//  KeychainWrapper
+//
+//  Created by Christopher Kobusch on 13.04.25.
+//  Copyright © 2025 Christopher Kobusch. All rights reserved.
+//
+
+// Platform Dependencies
+import Foundation
+
+// Test Dependencies
+import Testing
+
 @testable import KeychainWrapper
 
-final class GenericPasswordTests: XCTestCase {
-	private let normalAccount = "MyTestSecret"
-	private let normalService = "example.com"
+fileprivate struct ItemIdentifier {
+	let account: String
+	let service: String
+}
 
-	override func setUpWithError() throws {
-		// Put setup code here. This method is called before the invocation of each test method in the class.
-		try? removeGenericPasswordFromKeychain(account: normalAccount, service: normalService)
+@Suite(.serialized) actor GenericPasswordTests {
+	private func generateItemID() -> ItemIdentifier {
+		let id = UUID()
+		return ItemIdentifier(
+			account: "KeychainWrapper.Account.\(id)",
+			service: "KeychainWrapper.Service.\(id)")
 	}
 
-	func testNormalOperation() throws {
+	/// Working with generic passwords.
+	@Test func testCreateDelete() throws {
+		let id = generateItemID()
+
 		let encoding = String.Encoding.utf8
-
 		let pwData = "a".data(using: encoding) ?? Data()
-		XCTAssertNoThrow(try persistGenericPasswordInKeychain(pwData, account: normalAccount, service: normalService))
-		XCTAssertEqual(try genericPasswordFromKeychain(account: normalAccount, service: normalService), pwData)
-		XCTAssertEqual(try genericPasswordFromKeychain(account: normalAccount, service: normalService, encoding: encoding), "a")
-		XCTAssertNoThrow(try removeGenericPasswordFromKeychain(account: normalAccount, service: normalService))
-		XCTAssertThrowsError(try genericPasswordFromKeychain(account: normalAccount, service: normalService))
-		XCTAssertThrowsError(try genericPasswordFromKeychain(account: normalAccount, service: normalService, encoding: encoding))
+
+		try persistGenericPasswordInKeychain(
+			pwData, account: id.account, service: id.service)
+
+		try removeGenericPasswordFromKeychain(
+			account: id.account, service: id.service)
 	}
 
-	func testUnusualPrimaryKeyValues() throws {
+	/// Working with generic passwords.
+	@Test func testReadGenericPassword() throws {
+		let id = generateItemID()
+
+		let encoding = String.Encoding.utf8
+		let pwData = "a".data(using: encoding) ?? Data()
+
+		try persistGenericPasswordInKeychain(
+			pwData, account: id.account, service: id.service)
+		defer {
+			try? removeGenericPasswordFromKeychain(
+				account: id.account, service: id.service)
+		}
+
+		#expect(try genericPasswordFromKeychain(
+			account: id.account, service: id.service) == pwData)
+	}
+
+	/// Working with generic passwords.
+	@Test func testReadEncodedGenericPassword() throws {
+		let id = generateItemID()
+
+		let encoding = String.Encoding.utf8
+		let pwData = "a".data(using: encoding) ?? Data()
+
+		try persistGenericPasswordInKeychain(
+			pwData, account: id.account, service: id.service)
+		defer {
+			try? removeGenericPasswordFromKeychain(
+				account: id.account, service: id.service)
+		}
+
+		#expect(try genericPasswordFromKeychain(
+			account: id.account, service: id.service,
+			encoding: encoding) == "a")
+	}
+
+	/// Working with generic passwords.
+	@Test func testUseAfterDeleteGenericPassword() throws {
+		let id = generateItemID()
+
+		let encoding = String.Encoding.utf8
+		let pwData = "a".data(using: encoding) ?? Data()
+
+		try persistGenericPasswordInKeychain(
+			pwData, account: id.account, service: id.service)
+		defer {
+			try? removeGenericPasswordFromKeychain(
+				account: id.account, service: id.service)
+		}
+
+		try removeGenericPasswordFromKeychain(
+			account: id.account, service: id.service)
+
+		#expect(throws: Error.self) {
+			try genericPasswordFromKeychain(
+				account: id.account, service: id.service)
+		}
+
+		#expect(throws: Error.self) {
+			try genericPasswordFromKeychain(
+				account: id.account, service: id.service,
+				encoding: encoding)
+		}
+	}
+
+	/// Working with generic passwords.
+	@Test func testDoubleCreate() throws {
+		let id = generateItemID()
+
+		let encoding = String.Encoding.utf8
+		let pwData = "a".data(using: encoding) ?? Data()
+
+		try persistGenericPasswordInKeychain(
+			pwData, account: id.account, service: id.service)
+		defer {
+			try? removeGenericPasswordFromKeychain(
+				account: id.account, service: id.service)
+		}
+
+		#expect(throws: Error.self,
+				"creating the same password twice should fail") {
+			try persistGenericPasswordInKeychain(
+				pwData, account: id.account,
+				service: id.service)
+		}
+
+		try removeGenericPasswordFromKeychain(
+			account: id.account, service: id.service)
+	}
+
+	/// Working with special characters.
+	@Test func testUnusualPrimaryKeyValues() throws {
 		let pwData = "a".data(using: .utf8) ?? Data()
 		let strangeValue = "`&$§"
-		XCTAssertNoThrow(try persistGenericPasswordInKeychain(pwData, account: strangeValue, service: strangeValue))
-		XCTAssertEqual(try genericPasswordFromKeychain(account: strangeValue, service: strangeValue), pwData)
+
+		try persistGenericPasswordInKeychain(
+			pwData, account: strangeValue, service: strangeValue)
+		defer {
+			try? removeGenericPasswordFromKeychain(
+				account: strangeValue, service: strangeValue)
+		}
+
+		#expect(try genericPasswordFromKeychain(
+			account: strangeValue, service: strangeValue) == pwData)
 	}
 
-	func testDeleteFailsOnNonExistentAccount() throws {
-		XCTAssertThrowsError(try removeGenericPasswordFromKeychain(account: "non-existent", service: normalService))
-		XCTAssertThrowsError(try removeGenericPasswordFromKeychain(account: normalAccount, service: "non-existent"))
-		XCTAssertThrowsError(try removeGenericPasswordFromKeychain(account: "non-existent", service: "non-existent"))
+	@Test func testDeleteFailsOnNonExistingAccount() throws {
+		let id = generateItemID()
+
+		#expect(throws: Error.self) {
+			try removeGenericPasswordFromKeychain(
+				account: "non-existent", service: id.service)
+		}
+
+		#expect(throws: Error.self) {
+			try removeGenericPasswordFromKeychain(
+				account: id.account, service: "non-existent")
+		}
+
+		#expect(throws: Error.self) {
+			try removeGenericPasswordFromKeychain(
+				account: "non-existent", service: "non-existent")
+		}
 	}
 }

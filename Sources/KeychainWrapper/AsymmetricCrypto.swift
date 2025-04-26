@@ -59,15 +59,15 @@ extension AsymmetricKeyKeychainID {
 			size: properties.size)
 	}
 
-	/// Removes the key from the keychain.
+	/// Removes the key from the keychain. Does not throw if nothing was removed.
 	public func removeFromKeychain() throws {
 		try removeAsymmetricKeyFromKeychain(
 			tag: tag, part: properties.part,
 			algorithm: properties.algorithm, size: properties.size)
 	}
 
-	/// Whether they item exists in the keychain.
-	public var persisted: Bool {
+	/// Whether this key can be used.
+	public var available: Bool {
 		get throws {
 			do {
 				_ = try key()
@@ -138,6 +138,17 @@ public enum AsymmetricKeyBacking {
 	case memory(AsymmetricKeyInMemory), keychain(AsymmetricKeyKeychainID)
 }
 
+extension AsymmetricKeyBacking {
+	public var properties: AsymmetricKeyProperties {
+		switch self {
+		case .memory(let inMemory):
+			return inMemory.properties
+		case .keychain(let keychainID):
+			return keychainID.properties
+		}
+	}
+}
+
 /// Parses `data` based on the key properties provided to this method.
 ///
 /// - Throws: An `NSError` if `data` does not contain an appropriate representation of a key.
@@ -169,14 +180,14 @@ extension AsymmetricKeyBacking {
 		}
 	}
 
-	/// Whether they item exists in the keychain.
-	public var persisted: Bool {
+	/// Whether this key can be used.
+	public var available: Bool {
 		get throws {
 			switch self {
 			case .memory(_):
 				return false
 			case .keychain(let keyID):
-				return try keyID.persisted
+				return try keyID.available
 			}
 		}
 	}
@@ -326,6 +337,13 @@ public protocol AsymmetricPrivateKey: AsymmetricKeyBase {
 	///
 	/// - Throws: An `NSError` if the decryption process failed.
 	func decrypt(message cipherText: Data) throws -> Data
+
+	/// Gets the public key associated with this private key.
+	///
+	/// - Returns: The public key associated with this private key.
+	///
+	/// - Throws: An `NSError` if the public key cannot be obtained.
+	func copyPublicKey() throws -> AsymmetricPublicKey
 }
 
 /// Represents a private asymmetric key.
@@ -389,7 +407,36 @@ extension AsymmetricKeyBacking: AsymmetricPrivateKey {
 
 		return clearText
 	}
-	
+
+	/// Gets the public key associated with this private key.
+	///
+	/// - Returns: The public key associated with this private key.
+	///
+	/// - Throws: An `NSError` if the public key cannot be obtained.
+	public func copyPublicKey() throws -> any AsymmetricPublicKey {
+		// Note: it is not possible to return a .keychain backing, since
+		// we only store the private key in the keychain and we can't reference
+		// it with kSecAttrKeyClassPublic.
+
+		let publicKeyProperties = AsymmetricKeyProperties(
+			part: .publicKey, algorithm: self.properties.algorithm,
+			size: self.properties.size)
+
+		let key = try key()
+
+		guard let publicKey = SecKeyCopyPublicKey(key) else {
+			throw makeFatalError()
+		}
+
+		var error: Unmanaged<CFError>?
+		guard let data = SecKeyCopyExternalRepresentation(
+			publicKey, &error) as Data? else {
+			throw (error?.takeRetainedValue() as? Error) ?? makeFatalError()
+		}
+
+		return AsymmetricKeyBacking.memory(
+			.init(data: data, properties: publicKeyProperties))
+	}
 }
 
 /// Container for an asymmetric key pair.
@@ -397,69 +444,67 @@ public struct KeyPair: Sendable {
 	/// Private part of this key pair, which needs to be kept secure.
 	private let privateKeyBacking: AsymmetricKeyBacking
 
-	private let publicKeyBacking: AsymmetricKeyBacking
-
 	/// Public part of this key pair, which can be passed around publicly.
-	public var publicKey: AsymmetricPublicKey { return publicKeyBacking }
+	public var publicKey: AsymmetricPublicKey {
+		get throws {
+			return try privateKeyBacking.copyPublicKey()
+		}
+	}
 
 	/// Keychain item property.
-	let privateTag: Data, publicTag: Data, label: String
+	public let tag: Data
 
 	/// The block size of the private key.
-	public var blockSize: Int {
+	public var privateKeyBlockSize: Int {
 		get throws {
 			return try privateKeyBacking.blockSize
 		}
 	}
 
-	/// Generates a key pair and optionally stores it in the keychain.
+	/// The block size of the private key.
+	public var publicKeyBlockSize: Int {
+		get throws {
+			return try publicKey.blockSize
+		}
+	}
+
+	/// Whether this key can be used.
+	public var available: Bool {
+		get throws {
+			return try privateKeyBacking.available
+		}
+	}
+
+	/// Generates a key pair and stores it in the keychain.
 	///
-	/// > Note: Added in v1.1.0.
-	public init(privateTag: Data, publicTag: Data,
-				algorithm: AsymmetricAlgorithm, size: Int, persistent: Bool,
+	/// > Note: Added in v1.1.0, updated in v3.
+	public init(tag: Data, algorithm: AsymmetricAlgorithm, size: Int,
 				useEnclave: Bool = false) throws {
-		self.privateTag = privateTag
-		self.publicTag = publicTag
+		self.tag = tag
 
-		// the label does not belong to the primary key, so we should be safe to ignore it
-		self.label = ""
+		_ = try generateAsymmetricPrivateKey(
+			privateKeyTag: tag, algorithm: algorithm, size: size,
+			useEnclave: useEnclave)
 
-		_ = try generateAsymmetricKeyPair(
-			privateTag: privateTag, publicTag: publicTag, algorithm: algorithm,
-			size: size, persistent: persistent, useEnclave: useEnclave)
-
-		self.privateKeyBacking = .keychain(.init(tag: privateTag, properties: .init(
+		self.privateKeyBacking = .keychain(.init(tag: tag, properties: .init(
 			part: .privateKey, algorithm: algorithm, size: size)))
-		self.publicKeyBacking = .keychain(.init(tag: publicTag, properties: .init(
-			part: .publicKey, algorithm: algorithm, size: size)))
 	}
 
 	/// Loads a key pair from the system keychain.
 	///
 	/// > Note: Added in v1.1.0.
-	public init(fromKeychainWithPrivateTag privateTag: Data, publicTag: Data,
-				algorithm: AsymmetricAlgorithm, size: Int) {
-		self.privateTag = privateTag
-		self.publicTag = publicTag
+	public init(fromKeychainWithTag tag: Data, algorithm: AsymmetricAlgorithm,
+				size: Int) {
+		self.tag = tag
 
-		// the label does not belong to the primary key, so we should be safe to ignore it
-		self.label = ""
-
-		self.privateKeyBacking = .keychain(.init(tag: privateTag, properties: .init(
+		self.privateKeyBacking = .keychain(.init(tag: tag, properties: .init(
 			part: .privateKey, algorithm: algorithm, size: size)))
-		self.publicKeyBacking = .keychain(.init(tag: publicTag, properties: .init(
-			part: .publicKey, algorithm: algorithm, size: size)))
 	}
 
-	/// Deletes the keys in the keychain.
+	/// Deletes the key in the keychain.
 	public func removeFromKeychain() throws {
-		// it is not so critical when the public key remains, but more critical
-		// when the private one remains
-		if case .keychain(let keyID) = publicKeyBacking {
-			try? keyID.removeFromKeychain()
-		}
-		if case .keychain(let keyID) = privateKeyBacking {
-			try? keyID.removeFromKeychain()
+		if case .keychain(let keyID) = self.privateKeyBacking {
+			try keyID.removeFromKeychain()
 		}
 	}
 

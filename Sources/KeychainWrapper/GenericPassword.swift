@@ -25,9 +25,6 @@ public func persistGenericPasswordInKeychain(_ password: String, account: String
 /// > Note: Added in v1.1.0.
 @available(OSX 10.15, iOS 13.0, *)
 public func persistGenericPasswordInKeychain(_ password: Data, account: String, service: String) throws {
-	// Delete old password first (if available).
-	try? removeGenericPasswordFromKeychain(account: account, service: service)
-
 	var query = baseKeychainQuery(account: account, service: service)
 	query[kSecAttrLabel]       = GenericPasswordLabelAttribute
 	query[kSecAttrDescription] = KeychainWrapperDescriptionAttribute
@@ -79,6 +76,10 @@ public func genericPasswordFromKeychain(account: String, service: String) throws
 /// > Note: Added in v1.1.0.
 @available(OSX 10.15, iOS 13.0, *)
 public func removeGenericPasswordFromKeychain(account: String, service: String) throws {
+	// this is the ugliest line I have ever added to production code, but the
+	// tests show that it is necessary.
+	sleep(1)
+
 	try SecKey.check(status: SecItemDelete(baseKeychainQuery(account: account, service: service) as CFDictionary),
 		localizedError: NSLocalizedString("Deleting generic password from keychain failed.", tableName: "KeychainAccess",
 			bundle: .module, comment: "Attempt to delete a keychain item failed."))
