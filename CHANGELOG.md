@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2025-05-18
+
+### Fixed
+
+- Fix reading of asymmetric keys generated prior to major version 2.
+
 ## [3.0.0] - 2025-04-26
 
 ### Added

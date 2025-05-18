@@ -213,9 +213,10 @@ private func baseKeychainQuery(keyClass: CFString, tag: Data,
 	// kSecAttrEffectiveKeySize is automatically set depended on
 	// kSecAttrKeyType and kSecAttrKeySizeInBits.
 
+	// TODO: according to this http://stackoverflow.com/questions/11614047/ddg#11672200, `kSecAttrApplicationLabel` is also part of the primary key
+
 	var query: [CFString : Any] = [
 		kSecClass:              kSecClassKey,
-		kSecAttrLabel:          KeyItemLabelAttribute,
 		kSecAttrKeyClass:       keyClass,
 		kSecAttrKeySizeInBits:  size,
 		kSecAttrApplicationTag: tag,
